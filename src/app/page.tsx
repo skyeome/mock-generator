@@ -22,6 +22,7 @@ import { useMockGeneration } from '@/hooks/use-mock-generation';
 import { useExport } from '@/hooks/use-export';
 import type { JsonSchema } from '@/lib/types';
 import { Database } from 'lucide-react';
+import { ThemeToggle } from '@/components/ui/theme-toggle';
 
 interface SchemaField {
   name: string;
@@ -86,8 +87,12 @@ export default function Home() {
   const { count, setCount, generatedData, isGenerating } = useGeneratorStore();
   const { format, setFormat } = useExportStore();
 
-  const { isUsingAI, analyzeWithAI, cancelAIAnalysis, hasAIEnhancement } = useSchemaInference();
-  const { generate } = useMockGeneration();
+  const { isUsingAI, analyzeWithAI, cancelAIAnalysis, hasAIEnhancement, aiPreference, setAIPreference } = useSchemaInference();
+  const { generate } = useMockGeneration({
+    analyzeWithAI,
+    aiPreference,
+    hasAIEnhancement
+  });
   const { exportData } = useExport();
 
   // Convert schema to fields for SchemaView
@@ -101,30 +106,32 @@ export default function Home() {
   }, [generatedData, exportData]);
 
   return (
-    <div className="min-h-screen bg-zinc-900 text-zinc-100">
+    <div className="min-h-screen bg-background text-foreground">
       {/* AI Loading Overlay */}
       <AILoadingOverlay isVisible={isUsingAI} onCancel={cancelAIAnalysis} />
 
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 px-6 py-3">
+      <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-6 py-3">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold text-emerald-400 flex items-center gap-2">
+          <h1 className="text-xl font-bold text-primary flex items-center gap-2">
               <Database className="w-5 h-5" />
               Mock Data Generator
             </h1>
           <div className="flex items-center gap-4">
+            {/* Theme Toggle */}
+            <ThemeToggle />
             {/* Count Button Group */}
-            <div className="inline-flex rounded-md border border-zinc-700 overflow-hidden">
+            <div className="inline-flex rounded-md border border-border overflow-hidden">
               {[10, 50, 100, 500].map((preset, index) => (
                 <button
                   key={preset}
                   onClick={() => setCount(preset)}
                   className={`px-3 py-1.5 text-sm transition-colors ${
-                    index < 3 ? 'border-r border-zinc-700' : ''
+                    index < 3 ? 'border-r border-border' : ''
                   } ${
                     count === preset
-                      ? 'bg-emerald-600 text-white'
-                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                      ? 'bg-primary text-primary-foreground'
+                      : 'bg-secondary text-muted-foreground hover:bg-secondary/80'
                   }`}
                 >
                   {preset}
@@ -138,34 +145,30 @@ export default function Home() {
                 min={1}
                 max={1000}
                 placeholder="..."
-                className={`w-14 px-2 py-1.5 text-sm text-center border-l border-zinc-700 outline-none placeholder:text-zinc-600 ${
+                className={`w-14 px-2 py-1.5 text-sm text-center border-l border-border outline-none placeholder:text-muted-foreground ${
                   ![10, 50, 100, 500].includes(count)
-                    ? 'bg-emerald-600/20 text-emerald-400'
-                    : 'bg-zinc-800 text-zinc-500'
+                    ? 'bg-primary/20 text-primary'
+                    : 'bg-secondary text-muted-foreground'
                 }`}
               />
             </div>
             {/* AI Switch */}
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-zinc-800/50 border border-zinc-700">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-secondary/50 border border-border">
               <Switch
                 id="ai-mode"
-                checked={hasAIEnhancement}
-                onCheckedChange={(checked) => {
-                  if (checked && schema) {
-                    analyzeWithAI();
-                  }
-                }}
-                disabled={!schema || isUsingAI}
-                aria-label={hasAIEnhancement ? 'AI analysis enabled' : 'AI analysis disabled'}
-                className="data-[state=checked]:bg-purple-500 data-[state=unchecked]:bg-zinc-600 border border-zinc-500"
+                checked={aiPreference}
+                onCheckedChange={setAIPreference}
+                disabled={!schema}
+                aria-label={aiPreference ? 'AI analysis enabled' : 'AI analysis disabled'}
+                className="data-[state=checked]:bg-primary data-[state=unchecked]:bg-muted border border-border"
               />
               <label
                 htmlFor="ai-mode"
                 className={`text-sm cursor-pointer select-none whitespace-nowrap ${
-                  hasAIEnhancement ? 'text-purple-400' : 'text-zinc-400'
+                  aiPreference ? 'text-primary' : 'text-muted-foreground'
                 }`}
               >
-                {isUsingAI ? '분석중…' : hasAIEnhancement ? 'AI 분석' : 'AI 분석'}
+                {isUsingAI ? 'Analyzing…' : 'AI Analysis'}
               </label>
             </div>
             {/* Generate Button */}
@@ -191,7 +194,7 @@ export default function Home() {
           </ResizablePanel>
 
           {/* Resizable Handle */}
-          <ResizableHandle withHandle className="bg-zinc-800 hover:bg-zinc-700 transition-colors" />
+          <ResizableHandle withHandle className="bg-border hover:bg-border/80 transition-colors" />
 
           {/* Right panel - Schema & Output */}
           <ResizablePanel id="output-panel" minSize="40%">
@@ -226,20 +229,20 @@ export default function Home() {
       </main>
 
       {/* Status bar */}
-      <footer className="fixed bottom-0 left-0 right-0 z-10 bg-zinc-950 border-t border-zinc-800 px-6 py-2.5 flex items-center justify-between">
-        <span className="text-sm text-zinc-400">
+      <footer className="fixed bottom-0 left-0 right-0 z-10 bg-card border-t border-border px-6 py-2.5 flex items-center justify-between">
+        <span className="text-sm text-muted-foreground">
           {schema ? (
             <>
-              <span className="text-emerald-400 font-medium">{getSchemaFieldCount(schema)}</span>
-              <span className="text-zinc-500"> fields detected</span>
+              <span className="text-primary font-medium">{getSchemaFieldCount(schema)}</span>
+              <span className="text-muted-foreground"> fields detected</span>
             </>
           ) : (
-            <span className="text-zinc-500">Paste JSON to get started</span>
+            <span className="text-muted-foreground">Paste JSON to get started</span>
           )}
         </span>
         {hasAIEnhancement && (
-          <span className="text-xs text-purple-400/80 flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+          <span className="text-xs text-primary/80 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
             AI Enhanced
           </span>
         )}

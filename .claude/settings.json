@@ -34,7 +34,13 @@
       "Bash(pnpm lint:*)",
       "Bash(pnpm exec next lint:*)",
       "Bash(pnpm exec eslint:*)",
-      "Bash(npx shadcn@latest add:*)"
+      "Bash(npx shadcn@latest add:*)",
+      "Bash(pnpm run deploy:*)",
+      "mcp__playwright__browser_fill_form",
+      "Bash(pnpm test:coverage:*)",
+      "Bash(npx tsx:*)",
+      "Bash(pnpm run lint:*)",
+      "mcp__playwright__browser_run_code"
     ],
     "additionalDirectories": [
       "/Users/skyome1223/Repositories/mock-generator/.omc/plans"

@@ -66,7 +66,10 @@ export function enrichSchemaWithSemantics(
 
   // Add x-faker hint for primitive types
   if (fieldName && (schema.type === 'string' || schema.type === 'number' || schema.type === 'integer' || schema.type === 'boolean')) {
-    const semantic = detectSemantic(fieldName, schema.format);
+    // Pass schema type to detectSemantic for type-priority detection
+    // e.g., userId: 1 (integer) should be detected as "id", not "username"
+    const schemaType = Array.isArray(schema.type) ? schema.type[0] : schema.type;
+    const semantic = detectSemantic(fieldName, schema.format, schemaType);
 
     // Only add x-faker if we have a meaningful semantic match
     // For 'unknown', only apply to strings where lorem.word makes sense

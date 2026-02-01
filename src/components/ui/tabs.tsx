@@ -43,7 +43,7 @@ interface TabsListProps {
 export function TabsList({ children, className }: TabsListProps) {
   return (
     <div className={twMerge(clsx(
-      'flex border-b border-zinc-700',
+      'flex border-b border-border',
       className
     ))}>
       {children}
@@ -68,8 +68,8 @@ export function TabsTrigger({ value, children, className }: TabsTriggerProps) {
         'px-4 py-2 text-sm font-medium transition-colors',
         'border-b-2 -mb-px',
         isActive
-          ? 'text-emerald-400 border-emerald-500'
-          : 'text-zinc-400 border-transparent hover:text-zinc-300 hover:border-zinc-600',
+          ? 'text-primary border-primary'
+          : 'text-muted-foreground border-transparent hover:text-foreground hover:border-border',
         className
       ))}
     >

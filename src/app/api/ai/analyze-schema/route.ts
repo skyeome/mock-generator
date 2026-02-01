@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import type { JsonSchema } from '@/lib/types';
 import { DEFAULT_AI_CONFIG } from '@/lib/types/ai';
 import { AIClient } from '@/lib/ai/client';
@@ -36,9 +37,20 @@ export async function POST(request: NextRequest) {
 
     const client = new AIClient(mergedConfig);
 
-    // In development, AIClient uses fetch to localhost:1234
-    // In production, it would need the Cloudflare AI binding (passed as undefined here)
-    const analysis = await client.analyzeSchema(schema);
+    // Get AI binding from Cloudflare context (production only)
+    let aiBinding: Ai | undefined;
+    const isDev = process.env.NODE_ENV === 'development';
+
+    if (!isDev) {
+      try {
+        const ctx = await getCloudflareContext();
+        aiBinding = ctx.env.AI;
+      } catch (e) {
+        console.warn('Failed to get Cloudflare context:', e);
+      }
+    }
+
+    const analysis = await client.analyzeSchema(schema, aiBinding);
 
     if (!analysis) {
       return NextResponse.json({

@@ -147,21 +147,51 @@ export const SEMANTIC_RULES: SemanticRule[] = [
   },
 ];
 
+// Semantic types that are only valid for string types (not numeric)
+const STRING_ONLY_SEMANTICS: SemanticType[] = [
+  'username', 'email', 'phone', 'url', 'avatar',
+  'streetAddress', 'city', 'country', 'zipCode',
+  'firstName', 'lastName', 'fullName',
+  'company', 'jobTitle', 'sentence', 'paragraph', 'word',
+  'imageUrl', 'creditCard', 'currency'
+];
+
+// Pattern to detect fields that end with "Id" or "_id" (common ID naming patterns)
+const ID_SUFFIX_PATTERN = /(?:_?id|Id)$/;
+
 /**
- * Detect semantic type from field name and optionally format
+ * Detect semantic type from field name, format, and optionally schema type.
+ * When schemaType is provided, type takes priority over name patterns.
+ *
+ * Example: "userId" with integer type → "id" (not "username")
  */
 export function detectSemantic(
   fieldName: string,
-  format?: string
+  format?: string,
+  schemaType?: string
 ): SemanticType {
-  // First check format-based detection
+  // First check format-based detection (highest priority)
   if (format) {
     const formatMatch = SEMANTIC_RULES.find(r => r.format === format);
     if (formatMatch) return formatMatch.semantic;
   }
 
+  // Type-priority logic: numeric types with ID suffix should be "id"
+  if (schemaType === 'integer' || schemaType === 'number') {
+    // Fields ending with "id" or "Id" should be treated as numeric IDs
+    if (ID_SUFFIX_PATTERN.test(fieldName)) {
+      return 'id';
+    }
+  }
+
   // Then check field name patterns
   for (const rule of SEMANTIC_RULES) {
+    // Skip string-only semantics for numeric types
+    if ((schemaType === 'integer' || schemaType === 'number') &&
+        STRING_ONLY_SEMANTICS.includes(rule.semantic)) {
+      continue;
+    }
+
     for (const pattern of rule.fieldPatterns) {
       if (pattern.test(fieldName)) {
         return rule.semantic;

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AIClient, createAIClient } from '@/lib/ai/client';
 import type { AISchemaAnalysis } from '@/lib/types/ai';
 import type { JsonSchema } from '@/lib/types';
@@ -7,6 +7,9 @@ import type { JsonSchema } from '@/lib/types';
 const createMockAI = (response: unknown) => ({
   run: vi.fn().mockResolvedValue(response),
 });
+
+// Store original process.env
+const originalEnv = process.env;
 
 describe('AIClient', () => {
   describe('constructor', () => {
@@ -459,5 +462,226 @@ describe('createAIClient', () => {
     expect(client1).toBeInstanceOf(AIClient);
     expect(client2).toBeInstanceOf(AIClient);
     expect(client1).not.toBe(client2);
+  });
+});
+
+describe('AIClient - Response Parsing Edge Cases', () => {
+  const sampleSchema: JsonSchema = {
+    type: 'object',
+    properties: {
+      firstName: { type: 'string' },
+      email: { type: 'string', format: 'email' },
+    },
+  };
+
+  const validResponse: AISchemaAnalysis = {
+    domainContext: 'user-profile',
+    fieldHints: [
+      { fieldPath: 'firstName', suggestedSemantic: 'firstName', confidence: 0.95 },
+      { fieldPath: 'email', suggestedSemantic: 'email', confidence: 0.98 },
+    ],
+    coherenceGroups: [['firstName', 'email']],
+  };
+
+  it('should handle AI client internal error during parsing', async () => {
+    const client = new AIClient({ fallbackOnError: true });
+    // Pass a response that will trigger parseResponse error handling
+    const mockAI = createMockAI({ response: '{ broken json without proper formatting' });
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    expect(result).toBeNull();
+  });
+
+  it('should throw parsing errors when fallback disabled', async () => {
+    const client = new AIClient({ fallbackOnError: false });
+    // Create a mock AI that throws during processing
+    const mockAI = {
+      run: vi.fn().mockImplementation(() => {
+        throw new Error('AI runtime error');
+      }),
+    };
+
+    await expect(
+      client.analyzeSchema(sampleSchema, mockAI as unknown as Ai)
+    ).rejects.toThrow('AI runtime error');
+  });
+
+  it('should handle response with complex nested JSON that fails validation', async () => {
+    const client = new AIClient();
+    // Valid JSON but missing required fields
+    const invalidStructure = {
+      notDomainContext: 'test',
+      notFieldHints: [],
+    };
+    const mockAI = createMockAI({ response: JSON.stringify(invalidStructure) });
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    expect(result).toBeNull();
+  });
+
+  it('should extract and parse JSON from response with markdown and text', async () => {
+    const client = new AIClient();
+    const responseWithMarkdown = `
+Here's the analysis:
+\`\`\`json
+${JSON.stringify(validResponse)}
+\`\`\`
+This should work!`;
+    const mockAI = createMockAI({ response: responseWithMarkdown });
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    expect(result).toEqual(validResponse);
+  });
+
+  it('should handle catch block in parseResponse for unexpected errors', async () => {
+    const client = new AIClient();
+    // Create a string that will cause JSON.parse to throw
+    const problematicJSON = '{"domainContext": "test", "fieldHints": [}';
+    const mockAI = createMockAI({ response: problematicJSON });
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    expect(result).toBeNull();
+  });
+});
+
+describe('AIClient - Cloudflare Response Edge Cases', () => {
+  const sampleSchema: JsonSchema = {
+    type: 'object',
+    properties: {
+      name: { type: 'string' },
+    },
+  };
+
+  const validResponse: AISchemaAnalysis = {
+    domainContext: 'test',
+    fieldHints: [{ fieldPath: 'name', suggestedSemantic: 'fullName', confidence: 0.9 }],
+    coherenceGroups: [],
+  };
+
+  beforeEach(() => {
+    vi.stubEnv('NODE_ENV', 'production');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('should handle Cloudflare response as primitive string', async () => {
+    const client = new AIClient();
+    const mockAI = createMockAI(JSON.stringify(validResponse));
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    expect(result).toEqual(validResponse);
+  });
+
+  it('should handle Cloudflare response as number', async () => {
+    const client = new AIClient();
+    const mockAI = createMockAI(42);
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    expect(result).toBeNull(); // Number won't contain valid JSON
+  });
+
+  it('should handle Cloudflare response as null', async () => {
+    const client = new AIClient();
+    const mockAI = createMockAI(null);
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    expect(result).toBeNull();
+  });
+
+  it('should return null when Cloudflare AI binding is missing', async () => {
+    const client = new AIClient();
+
+    const result = await client.analyzeSchema(sampleSchema, undefined);
+
+    expect(result).toBeNull();
+  });
+
+  it('should handle Cloudflare response with neither response nor content field', async () => {
+    const client = new AIClient();
+    const mockAI = createMockAI({ someOtherField: 'value' });
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    expect(result).toBeNull();
+  });
+});
+
+describe('AIClient - Parse Response Edge Cases', () => {
+  const sampleSchema: JsonSchema = {
+    type: 'object',
+    properties: {
+      test: { type: 'string' },
+    },
+  };
+
+  beforeEach(() => {
+    vi.stubEnv('NODE_ENV', 'production');
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('should handle malformed JSON in response', async () => {
+    const client = new AIClient();
+    const malformedJSON = '{ "domainContext": "test", "fieldHints": [missing closing bracket';
+    const mockAI = createMockAI({ response: malformedJSON });
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    expect(result).toBeNull();
+  });
+
+  it('should handle JSON with syntax errors', async () => {
+    const client = new AIClient();
+    const invalidJSON = '{ "domainContext": "test", fieldHints: [] }'; // Missing quotes
+    const mockAI = createMockAI({ response: invalidJSON });
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    expect(result).toBeNull();
+  });
+
+  it('should handle response with nested JSON objects and extract first match', async () => {
+    const client = new AIClient();
+    const validResponse: AISchemaAnalysis = {
+      domainContext: 'test',
+      fieldHints: [],
+      coherenceGroups: [],
+    };
+    const nestedResponse = `Some text { "invalid": "json" } more text ${JSON.stringify(validResponse)} extra`;
+    const mockAI = createMockAI({ response: nestedResponse });
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    // Should match the first JSON object found (invalid one)
+    expect(result).toBeNull();
+  });
+
+  it('should handle empty string response', async () => {
+    const client = new AIClient();
+    const mockAI = createMockAI({ response: '' });
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    expect(result).toBeNull();
+  });
+
+  it('should handle response with only whitespace', async () => {
+    const client = new AIClient();
+    const mockAI = createMockAI({ response: '   \n\t  ' });
+
+    const result = await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
+
+    expect(result).toBeNull();
   });
 });

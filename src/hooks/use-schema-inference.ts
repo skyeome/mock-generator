@@ -66,6 +66,7 @@ export function useSchemaInference() {
   const { inputJson, schema, setSchema, setParseError } = useSchemaStore();
   const [isUsingAI, setIsUsingAI] = useState(false);
   const [hasAIEnhancement, setHasAIEnhancement] = useState(false);
+  const [aiPreference, setAIPreference] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Basic schema inference with regex (fast, local - runs on input change)
@@ -94,8 +95,8 @@ export function useSchemaInference() {
   }, [inputJson, setSchema, setParseError]);
 
   // AI-enhanced analysis (expensive - only on explicit user action)
-  const analyzeWithAI = useCallback(async () => {
-    if (!schema) return;
+  const analyzeWithAI = useCallback(async (): Promise<{ success: boolean; aborted?: boolean; error?: string }> => {
+    if (!schema) return { success: false, error: 'No schema available' };
 
     // Cancel any pending AI request
     if (abortControllerRef.current) {
@@ -122,18 +123,20 @@ export function useSchemaInference() {
           const enriched = applyAIAnalysis(schema, data.analysis);
           setSchema(enriched);
           setHasAIEnhancement(true);
-          return;
+          return { success: true };
         }
       }
 
       // AI failed - keep current schema (already has regex enrichment)
       console.log('AI analysis not available, keeping regex-based detection');
+      return { success: false, error: 'AI analysis not available' };
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         console.log('AI analysis cancelled');
-        return;
+        return { success: false, aborted: true };
       }
       console.log('AI analysis error:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     } finally {
       setIsUsingAI(false);
       abortControllerRef.current = null;
@@ -159,6 +162,8 @@ export function useSchemaInference() {
     analyzeWithAI,
     cancelAIAnalysis,
     isUsingAI,
-    hasAIEnhancement
+    hasAIEnhancement,
+    aiPreference,
+    setAIPreference
   };
 }

@@ -70,17 +70,17 @@ export function AILoadingOverlay({ isVisible, onCancel }: AILoadingOverlayProps)
       aria-modal="true"
       aria-labelledby="ai-loading-title"
     >
-      <div className="relative w-full max-w-md mx-4 p-6 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl shadow-emerald-500/10">
+      <div className="relative w-full max-w-md mx-4 p-6 bg-card border border-border rounded-xl shadow-2xl shadow-primary/10">
         {/* Glow effect */}
-        <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-emerald-500/5 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 rounded-xl bg-gradient-to-b from-primary/5 to-transparent pointer-events-none" />
 
         {/* AI Icon with pulse animation */}
         <div className="flex justify-center mb-6">
           <div className="relative">
-            <div className="absolute inset-0 animate-ping bg-emerald-500/20 rounded-full" style={{ animationDuration: '2s' }} />
-            <div className="relative w-16 h-16 flex items-center justify-center bg-zinc-800 rounded-full border border-emerald-500/30">
+            <div className="absolute inset-0 animate-ping bg-primary/20 rounded-full" style={{ animationDuration: '2s' }} />
+            <div className="relative w-16 h-16 flex items-center justify-center bg-muted rounded-full border border-primary/30">
               <svg
-                className="w-8 h-8 text-emerald-400"
+                className="w-8 h-8 text-primary"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -100,13 +100,13 @@ export function AILoadingOverlay({ isVisible, onCancel }: AILoadingOverlayProps)
         {/* Title */}
         <h2
           id="ai-loading-title"
-          className="text-xl font-semibold text-center text-zinc-100 mb-2"
+          className="text-xl font-semibold text-center text-foreground mb-2"
         >
           Analyzing Schema…
         </h2>
 
         {/* Subtitle */}
-        <p className="text-sm text-center text-zinc-400 mb-6">
+        <p className="text-sm text-center text-muted-foreground mb-6">
           AI is detecting field semantics for contextual data generation
         </p>
 
@@ -127,23 +127,23 @@ export function AILoadingOverlay({ isVisible, onCancel }: AILoadingOverlayProps)
               {/* Status indicator */}
               <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
                 {step.status === 'completed' && (
-                  <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                   </svg>
                 )}
                 {step.status === 'active' && (
-                  <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 )}
                 {step.status === 'pending' && (
-                  <div className="w-4 h-4 rounded-full bg-zinc-600" />
+                  <div className="w-4 h-4 rounded-full bg-muted" />
                 )}
               </div>
 
               {/* Label */}
               <span className={`text-sm ${
-                step.status === 'completed' ? 'text-emerald-400' :
-                step.status === 'active' ? 'text-zinc-100' :
-                'text-zinc-500'
+                step.status === 'completed' ? 'text-primary' :
+                step.status === 'active' ? 'text-foreground' :
+                'text-muted-foreground'
               }`}>
                 {step.label}
               </span>
@@ -155,7 +155,7 @@ export function AILoadingOverlay({ isVisible, onCancel }: AILoadingOverlayProps)
         {onCancel && (
           <button
             onClick={onCancel}
-            className="w-full py-2 text-sm text-zinc-400 hover:text-zinc-200 border border-zinc-700 hover:border-zinc-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:ring-offset-zinc-900"
+            className="w-full py-2 text-sm text-muted-foreground hover:text-foreground border border-border hover:border-border/80 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background"
           >
             Cancel
           </button>

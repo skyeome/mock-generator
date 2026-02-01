@@ -124,6 +124,27 @@ describe('detectSemantic', () => {
       expect(detectSemantic('pk')).toBe('id');
       expect(detectSemantic('key')).toBe('id');
     });
+
+    it('should prioritize type over name pattern - userId with integer type should be id, not username', () => {
+      // When type is integer/number, fields ending with "id" should be detected as id
+      expect(detectSemantic('userId', undefined, 'integer')).toBe('id');
+      expect(detectSemantic('user_id', undefined, 'integer')).toBe('id');
+      expect(detectSemantic('customerId', undefined, 'integer')).toBe('id');
+      expect(detectSemantic('orderId', undefined, 'number')).toBe('id');
+      expect(detectSemantic('postId', undefined, 'integer')).toBe('id');
+    });
+
+    it('should detect userId as username when type is string', () => {
+      // When type is string, userId should still be username (login id)
+      expect(detectSemantic('user_id', undefined, 'string')).toBe('username');
+      expect(detectSemantic('userId', undefined, 'string')).toBe('username');
+    });
+
+    it('should detect userId as username when no type provided (backwards compatible)', () => {
+      // Without type info, fall back to name-based detection
+      expect(detectSemantic('user_id')).toBe('username');
+      expect(detectSemantic('userId')).toBe('username');
+    });
   });
 
   describe('date fields', () => {

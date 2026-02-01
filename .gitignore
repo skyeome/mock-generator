@@ -50,3 +50,5 @@ next-env.d.ts
 
 
 !.dev.vars.example
+#oh my claudecode
+/.omc

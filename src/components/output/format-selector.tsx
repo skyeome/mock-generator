@@ -16,15 +16,15 @@ const formats: { value: ExportFormat; label: string }[] = [
 
 export function FormatSelector({ value, onChange }: FormatSelectorProps) {
   return (
-    <div className="flex border-b border-zinc-700">
+    <div className="flex border-b border-border">
       {formats.map((format) => (
         <button
           key={format.value}
           onClick={() => onChange(format.value)}
           className={`px-4 py-2 text-sm font-medium transition-colors ${
             value === format.value
-              ? 'text-emerald-400 border-b-2 border-emerald-400'
-              : 'text-zinc-400 hover:text-zinc-200'
+              ? 'text-primary border-b-2 border-primary'
+              : 'text-muted-foreground hover:text-foreground'
           }`}
         >
           {format.label}
