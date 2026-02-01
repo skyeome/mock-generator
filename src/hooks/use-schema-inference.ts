@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useSchemaStore } from '@/store/schema-store';
 import { inferSchema } from '@/lib/schema/inferSchema';
 import { enrichSchemaWithSemantics } from '@/lib/schema/enrichSchema';
@@ -63,59 +63,102 @@ function mapSemanticToFaker(semantic: string): string {
 }
 
 export function useSchemaInference() {
-  const { inputJson, setSchema, setParseError } = useSchemaStore();
+  const { inputJson, schema, setSchema, setParseError } = useSchemaStore();
   const [isUsingAI, setIsUsingAI] = useState(false);
+  const [hasAIEnhancement, setHasAIEnhancement] = useState(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const inferFromJson = useCallback(async () => {
+  // Basic schema inference with regex (fast, local - runs on input change)
+  const inferFromJson = useCallback(() => {
     if (!inputJson.trim()) {
       setSchema(null);
       setParseError(null);
+      setHasAIEnhancement(false);
       return;
     }
 
     try {
       const parsed = JSON.parse(inputJson);
-      const schema = inferSchema(parsed);
+      const rawSchema = inferSchema(parsed);
 
-      // Try AI first
-      try {
-        setIsUsingAI(true);
-        const response = await fetch('/api/ai/analyze-schema', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ schema, config: { enabled: true } }),
-        });
-
-        if (response.ok) {
-          const data = await response.json() as { success?: boolean; analysis?: { fieldHints: Array<{ fieldPath: string; suggestedSemantic: string; confidence: number }> } };
-          if (data.success && data.analysis) {
-            const enriched = applyAIAnalysis(schema, data.analysis);
-            setSchema(enriched);
-            setParseError(null);
-            return;
-          }
-        }
-      } catch (aiError) {
-        console.log('AI analysis not available, using regex fallback');
-      } finally {
-        setIsUsingAI(false);
-      }
-
-      // Fallback to regex-based enrichment
-      const enriched = enrichSchemaWithSemantics(schema);
+      // Use regex-based enrichment (fast, no server call)
+      const enriched = enrichSchemaWithSemantics(rawSchema);
       setSchema(enriched);
       setParseError(null);
+      setHasAIEnhancement(false);
     } catch (e) {
       setParseError(e instanceof Error ? e.message : 'Invalid JSON');
       setSchema(null);
+      setHasAIEnhancement(false);
     }
   }, [inputJson, setSchema, setParseError]);
 
-  // Auto-infer on input change (debounced)
+  // AI-enhanced analysis (expensive - only on explicit user action)
+  const analyzeWithAI = useCallback(async () => {
+    if (!schema) return;
+
+    // Cancel any pending AI request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    try {
+      setIsUsingAI(true);
+      const response = await fetch('/api/ai/analyze-schema', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schema, config: { enabled: true } }),
+        signal: abortControllerRef.current.signal,
+      });
+
+      if (response.ok) {
+        const data = await response.json() as {
+          success?: boolean;
+          analysis?: { fieldHints: Array<{ fieldPath: string; suggestedSemantic: string; confidence: number }> }
+        };
+
+        if (data.success && data.analysis) {
+          const enriched = applyAIAnalysis(schema, data.analysis);
+          setSchema(enriched);
+          setHasAIEnhancement(true);
+          return;
+        }
+      }
+
+      // AI failed - keep current schema (already has regex enrichment)
+      console.log('AI analysis not available, keeping regex-based detection');
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        console.log('AI analysis cancelled');
+        return;
+      }
+      console.log('AI analysis error:', error);
+    } finally {
+      setIsUsingAI(false);
+      abortControllerRef.current = null;
+    }
+  }, [schema, setSchema]);
+
+  // Cancel AI analysis
+  const cancelAIAnalysis = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      setIsUsingAI(false);
+    }
+  }, []);
+
+  // Auto-infer on input change (regex only - debounced)
   useEffect(() => {
     const timer = setTimeout(inferFromJson, 300);
     return () => clearTimeout(timer);
   }, [inferFromJson]);
 
-  return { inferFromJson, isUsingAI };
+  return {
+    inferFromJson,
+    analyzeWithAI,
+    cancelAIAnalysis,
+    isUsingAI,
+    hasAIEnhancement
+  };
 }

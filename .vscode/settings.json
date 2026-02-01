@@ -1,5 +1,6 @@
 {
 	"files.associations": {
+		"globals.css": "tailwindcss",
 		"wrangler.json": "jsonc"
 	}
 }

@@ -1,29 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import type { JsonSchema } from '@/lib/types';
 import { DEFAULT_AI_CONFIG } from '@/lib/types/ai';
-import type { AISchemaAnalysis } from '@/lib/types/ai';
-
-// Cloudflare Workers environment type
-interface Env {
-  AI: Ai;
-}
+import { AIClient } from '@/lib/ai/client';
 
 /**
  * POST /api/ai/analyze-schema
  * Analyzes a JSON schema using AI to detect semantic types
+ * - Development: Uses LM Studio at localhost:1234
+ * - Production: Uses Cloudflare Workers AI (requires AI binding)
  */
-export async function POST(
-  request: NextRequest
-) {
+export async function POST(request: NextRequest) {
   try {
-    // Parse request body
     const body = await request.json();
     const { schema, config } = body as {
       schema: JsonSchema;
       config?: Partial<typeof DEFAULT_AI_CONFIG>;
     };
 
-    // Validate schema
     if (!schema || typeof schema !== 'object') {
       return NextResponse.json(
         { error: 'Invalid schema: must be a JSON object' },
@@ -31,63 +24,28 @@ export async function POST(
       );
     }
 
-    // AI binding not available in this context - return fallback
-    // In Cloudflare Workers, AI binding would be accessed differently
-    return NextResponse.json(
-      {
-        error: 'AI service not available',
+    const mergedConfig = { ...DEFAULT_AI_CONFIG, ...config };
+
+    if (!mergedConfig.enabled) {
+      return NextResponse.json({
+        success: false,
         fallback: true,
-        message: 'AI binding not configured. Using regex-based detection.'
-      },
-      { status: 503 }
-    );
-
-    // NOTE: The code below is kept for reference but unreachable
-    // When AI binding is properly configured, this route would be updated
-    const ai = null as unknown as Ai;
-    if (!ai) {
-      return NextResponse.json(
-        {
-          error: 'AI service not available',
-          fallback: true,
-          message: 'AI binding not configured. Using regex-based detection.'
-        },
-        { status: 503 }
-      );
+        message: 'AI is disabled'
+      });
     }
 
-    // NOTE: The analyzeSchemaWithAI function will be implemented in another task
-    // For now, we'll import it dynamically and handle the error
-    let analysis: AISchemaAnalysis | null = null;
+    const client = new AIClient(mergedConfig);
 
-    try {
-      const { analyzeSchemaWithAI } = await import('@/lib/schema/aiDetectSemantic');
-      analysis = await analyzeSchemaWithAI(
-        schema,
-        ai,
-        { ...DEFAULT_AI_CONFIG, ...config }
-      );
-    } catch (importError) {
-      // AI detection function not yet implemented - graceful fallback
-      console.warn('AI detection not yet implemented:', importError);
-      return NextResponse.json(
-        {
-          error: 'AI detection not yet implemented',
-          fallback: true,
-          message: 'Using regex-based detection as fallback.'
-        },
-        { status: 200 }
-      );
-    }
+    // In development, AIClient uses fetch to localhost:1234
+    // In production, it would need the Cloudflare AI binding (passed as undefined here)
+    const analysis = await client.analyzeSchema(schema);
 
     if (!analysis) {
-      return NextResponse.json(
-        {
-          error: 'AI analysis returned no results',
-          fallback: true
-        },
-        { status: 200 }
-      );
+      return NextResponse.json({
+        success: false,
+        fallback: true,
+        message: 'AI analysis returned no results'
+      });
     }
 
     return NextResponse.json({
@@ -114,20 +72,16 @@ export async function POST(
  * Returns API info and status
  */
 export async function GET() {
+  const isDev = process.env.NODE_ENV === 'development';
+
   return NextResponse.json({
     endpoint: '/api/ai/analyze-schema',
     method: 'POST',
-    description: 'Analyze JSON schema with AI to detect semantic types',
+    status: 'active',
+    provider: isDev ? 'OpenAI-compatible (LM Studio)' : 'Cloudflare Workers AI',
     body: {
       schema: 'JsonSchema (required)',
       config: 'AIConfig (optional)'
-    },
-    response: {
-      success: 'boolean',
-      analysis: 'AISchemaAnalysis | null'
-    },
-    fallback: {
-      note: 'Returns fallback flag when AI is unavailable or not yet implemented'
     }
   });
 }

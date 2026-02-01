@@ -1,6 +1,8 @@
 'use client';
 
 import { useState } from 'react';
+import { FileJson, ChevronDown, ChevronRight } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SchemaField {
   name: string;
@@ -44,16 +46,21 @@ function SchemaFieldItem({ field, depth = 0 }: { field: SchemaField; depth?: num
 
   return (
     <div className="border-l border-zinc-800" style={{ marginLeft: `${depth * 16}px` }}>
-      <div className="flex items-center gap-2 py-1.5 px-3 hover:bg-zinc-900/50">
-        {hasChildren && (
+      <div className="flex items-center gap-2 py-1.5 px-3 hover:bg-zinc-900/50 rounded-r transition-colors">
+        {hasChildren ? (
           <button
             onClick={() => setIsExpanded(!isExpanded)}
-            className="text-zinc-500 hover:text-zinc-300 w-4 h-4 flex items-center justify-center"
+            className="text-zinc-500 hover:text-zinc-300 w-4 h-4 flex items-center justify-center transition-colors"
           >
-            {isExpanded ? '▼' : '▶'}
+            {isExpanded ? (
+              <ChevronDown className="w-3.5 h-3.5" />
+            ) : (
+              <ChevronRight className="w-3.5 h-3.5" />
+            )}
           </button>
+        ) : (
+          <div className="w-4" />
         )}
-        {!hasChildren && <div className="w-4" />}
 
         <span className="font-mono text-sm text-zinc-300">
           {field.name}
@@ -79,18 +86,26 @@ function SchemaFieldItem({ field, depth = 0 }: { field: SchemaField; depth?: num
 export function SchemaView({ schema }: SchemaViewProps) {
   if (!schema || schema.length === 0) {
     return (
-      <div className="h-full flex items-center justify-center text-zinc-500">
+      <div className="flex-1 flex items-center justify-center text-zinc-500 bg-zinc-950 rounded-lg border border-zinc-800">
         <p>No schema detected. Paste valid JSON to see the inferred schema.</p>
       </div>
     );
   }
 
   return (
-    <div className="h-full overflow-y-auto bg-zinc-950 rounded-lg border border-zinc-800 p-4">
-      <div className="text-zinc-400 text-sm mb-4 font-semibold">Inferred Schema</div>
-      {schema.map((field, idx) => (
-        <SchemaFieldItem key={idx} field={field} />
-      ))}
+    <div className="flex-1 flex flex-col bg-zinc-950 rounded-lg border border-zinc-800 overflow-hidden">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-zinc-800 bg-zinc-900/50">
+        <FileJson className="w-4 h-4 text-emerald-400" />
+        <h3 className="text-sm font-semibold text-zinc-200">Inferred Schema</h3>
+        <span className="text-xs text-zinc-500">({schema.length} fields)</span>
+      </div>
+      <ScrollArea className="flex-1">
+        <div className="p-4">
+          {schema.map((field, idx) => (
+            <SchemaFieldItem key={idx} field={field} />
+          ))}
+        </div>
+      </ScrollArea>
     </div>
   );
 }

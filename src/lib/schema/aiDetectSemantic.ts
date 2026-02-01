@@ -9,11 +9,11 @@ import { enrichSchemaWithSemantics } from './enrichSchema';
  */
 export async function analyzeSchemaWithAI(
   schema: JsonSchema,
-  ai: Ai,
+  ai: Ai | null,
   config: Partial<AIConfig> = {}
 ): Promise<AISchemaAnalysis | null> {
   const client = new AIClient({ ...DEFAULT_AI_CONFIG, ...config });
-  return client.analyzeSchema(schema, ai);
+  return client.analyzeSchema(schema, ai ?? undefined);
 }
 
 /**
@@ -25,8 +25,8 @@ export async function enrichSchemaWithAI(
   ai: Ai | null,
   config: Partial<AIConfig> = {}
 ): Promise<JsonSchema> {
-  // If AI is not available or disabled, use regex fallback
-  if (!ai || !config.enabled) {
+  // If AI is disabled, use regex fallback
+  if (!config.enabled) {
     return enrichSchemaWithSemantics(schema);
   }
 

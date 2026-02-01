@@ -4,7 +4,6 @@ import type { AIConfig } from '../types/ai';
  * Get AI configuration from environment variables
  */
 export function getAIConfig(): AIConfig {
-  // Check environment variables (works in both Node and Cloudflare Workers)
   const enabled = getEnvVar('AI_ENABLED', 'true') === 'true';
   const model = getEnvVar('AI_MODEL', '@cf/meta/llama-3.1-8b-instruct');
   const maxTokens = parseInt(getEnvVar('AI_MAX_TOKENS', '1024'), 10);
@@ -24,11 +23,9 @@ export function getAIConfig(): AIConfig {
  * Get environment variable with fallback
  */
 function getEnvVar(key: string, defaultValue: string): string {
-  // Check process.env (Node.js)
   if (typeof process !== 'undefined' && process.env?.[key]) {
     return process.env[key] as string;
   }
-
   return defaultValue;
 }
 
@@ -44,10 +41,6 @@ export function validateAIConfig(config: AIConfig): { valid: boolean; errors: st
 
   if (config.temperature < 0 || config.temperature > 2) {
     errors.push('temperature must be between 0 and 2');
-  }
-
-  if (!config.model.startsWith('@cf/')) {
-    errors.push('model must be a valid Cloudflare Workers AI model');
   }
 
   return {

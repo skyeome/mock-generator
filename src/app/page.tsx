@@ -7,6 +7,13 @@ import { DataPreview } from '@/components/output/data-preview';
 import { FormatSelector } from '@/components/output/format-selector';
 import { ExportActions } from '@/components/output/export-actions';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
+import { AILoadingOverlay } from '@/components/ui/ai-loading-overlay';
+import {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from '@/components/ui/resizable';
 import { useSchemaStore } from '@/store/schema-store';
 import { useGeneratorStore } from '@/store/generator-store';
 import { useExportStore } from '@/store/export-store';
@@ -14,6 +21,7 @@ import { useSchemaInference } from '@/hooks/use-schema-inference';
 import { useMockGeneration } from '@/hooks/use-mock-generation';
 import { useExport } from '@/hooks/use-export';
 import type { JsonSchema } from '@/lib/types';
+import { Database } from 'lucide-react';
 
 interface SchemaField {
   name: string;
@@ -78,7 +86,7 @@ export default function Home() {
   const { count, setCount, generatedData, isGenerating } = useGeneratorStore();
   const { format, setFormat } = useExportStore();
 
-  useSchemaInference();
+  const { isUsingAI, analyzeWithAI, cancelAIAnalysis, hasAIEnhancement } = useSchemaInference();
   const { generate } = useMockGeneration();
   const { exportData } = useExport();
 
@@ -94,61 +102,147 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-zinc-900 text-zinc-100">
+      {/* AI Loading Overlay */}
+      <AILoadingOverlay isVisible={isUsingAI} onCancel={cancelAIAnalysis} />
+
       {/* Header */}
-      <header className="sticky top-0 z-10 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 px-6 py-4">
-        <h1 className="text-xl font-bold text-emerald-400">Mock Data Generator</h1>
-      </header>
-
-      {/* Main content - split layout */}
-      <main className="flex h-[calc(100vh-65px)]">
-        {/* Left panel - JSON Input */}
-        <div className="w-2/5 p-4 border-r border-zinc-800">
-          <JsonInput value={inputJson} onChange={setInputJson} error={parseError} />
-        </div>
-
-        {/* Right panel - Schema & Output */}
-        <div className="flex-1 flex flex-col p-4">
-          {/* Tabs and controls */}
-          <div className="flex items-center justify-between mb-4">
-            <FormatSelector value={format} onChange={setFormat} />
-            <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-10 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 px-6 py-3">
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-emerald-400 flex items-center gap-2">
+              <Database className="w-5 h-5" />
+              Mock Data Generator
+            </h1>
+          <div className="flex items-center gap-4">
+            {/* Count Button Group */}
+            <div className="inline-flex rounded-md border border-zinc-700 overflow-hidden">
+              {[10, 50, 100, 500].map((preset, index) => (
+                <button
+                  key={preset}
+                  onClick={() => setCount(preset)}
+                  className={`px-3 py-1.5 text-sm transition-colors ${
+                    index < 3 ? 'border-r border-zinc-700' : ''
+                  } ${
+                    count === preset
+                      ? 'bg-emerald-600 text-white'
+                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                  }`}
+                >
+                  {preset}
+                </button>
+              ))}
               <input
                 type="number"
-                value={count}
-                onChange={(e) => setCount(Number(e.target.value))}
+                value={[10, 50, 100, 500].includes(count) ? '' : count}
+                onChange={(e) => setCount(Math.min(1000, Math.max(1, Number(e.target.value) || 1)))}
+                onFocus={(e) => { if ([10, 50, 100, 500].includes(count)) e.target.value = String(count); }}
                 min={1}
                 max={1000}
-                className="w-20 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded text-sm"
+                placeholder="..."
+                className={`w-14 px-2 py-1.5 text-sm text-center border-l border-zinc-700 outline-none placeholder:text-zinc-600 ${
+                  ![10, 50, 100, 500].includes(count)
+                    ? 'bg-emerald-600/20 text-emerald-400'
+                    : 'bg-zinc-800 text-zinc-500'
+                }`}
               />
-              <Button onClick={generate} loading={isGenerating} disabled={!schema}>
-                Generate
-              </Button>
             </div>
+            {/* AI Switch */}
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-zinc-800/50 border border-zinc-700">
+              <Switch
+                id="ai-mode"
+                checked={hasAIEnhancement}
+                onCheckedChange={(checked) => {
+                  if (checked && schema) {
+                    analyzeWithAI();
+                  }
+                }}
+                disabled={!schema || isUsingAI}
+                aria-label={hasAIEnhancement ? 'AI analysis enabled' : 'AI analysis disabled'}
+                className="data-[state=checked]:bg-purple-500 data-[state=unchecked]:bg-zinc-600 border border-zinc-500"
+              />
+              <label
+                htmlFor="ai-mode"
+                className={`text-sm cursor-pointer select-none whitespace-nowrap ${
+                  hasAIEnhancement ? 'text-purple-400' : 'text-zinc-400'
+                }`}
+              >
+                {isUsingAI ? '분석중…' : hasAIEnhancement ? 'AI 분석' : 'AI 분석'}
+              </label>
+            </div>
+            {/* Generate Button */}
+            <Button onClick={generate} loading={isGenerating} disabled={!schema}>
+              Generate
+            </Button>
           </div>
-
-          {/* Content area */}
-          <div className="flex-1 overflow-hidden">
-            {exportedData ? (
-              <DataPreview data={exportedData} format={format} />
-            ) : (
-              <SchemaView schema={schemaFields} />
-            )}
-          </div>
-
-          {/* Export actions */}
-          {exportedData && (
-            <ExportActions
-              data={exportedData}
-              format={format}
-              recordCount={generatedData.length}
-            />
-          )}
         </div>
+      </header>
+
+      {/* Main content - Resizable split layout */}
+      <main className="h-[calc(100vh-65px)] pb-12">
+        <ResizablePanelGroup
+          orientation="horizontal"
+          className="h-full"
+          defaultLayout={{ "input-panel": 40, "output-panel": 60 }}
+        >
+          {/* Left panel - JSON Input */}
+          <ResizablePanel id="input-panel" minSize="25%" maxSize="60%">
+            <div className="h-full p-4 flex flex-col">
+              <JsonInput value={inputJson} onChange={setInputJson} error={parseError} />
+            </div>
+          </ResizablePanel>
+
+          {/* Resizable Handle */}
+          <ResizableHandle withHandle className="bg-zinc-800 hover:bg-zinc-700 transition-colors" />
+
+          {/* Right panel - Schema & Output */}
+          <ResizablePanel id="output-panel" minSize="40%">
+            <div className="h-full flex flex-col p-4">
+              {/* Format tabs */}
+              <div className="mb-4">
+                <FormatSelector value={format} onChange={setFormat} />
+              </div>
+
+              {/* Content area */}
+              <div className="flex-1 min-h-0 flex flex-col">
+                {exportedData ? (
+                  <DataPreview data={exportedData} format={format} />
+                ) : (
+                  <SchemaView schema={schemaFields} />
+                )}
+              </div>
+
+              {/* Export actions */}
+              {exportedData && (
+                <div className="mt-4">
+                  <ExportActions
+                    data={exportedData}
+                    format={format}
+                    recordCount={generatedData.length}
+                  />
+                </div>
+              )}
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       </main>
 
       {/* Status bar */}
-      <footer className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 px-4 py-2 text-xs text-zinc-500">
-        {schema ? `Schema detected: ${getSchemaFieldCount(schema)} fields` : 'Paste JSON to get started'}
+      <footer className="fixed bottom-0 left-0 right-0 z-10 bg-zinc-950 border-t border-zinc-800 px-6 py-2.5 flex items-center justify-between">
+        <span className="text-sm text-zinc-400">
+          {schema ? (
+            <>
+              <span className="text-emerald-400 font-medium">{getSchemaFieldCount(schema)}</span>
+              <span className="text-zinc-500"> fields detected</span>
+            </>
+          ) : (
+            <span className="text-zinc-500">Paste JSON to get started</span>
+          )}
+        </span>
+        {hasAIEnhancement && (
+          <span className="text-xs text-purple-400/80 flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+            AI Enhanced
+          </span>
+        )}
       </footer>
     </div>
   );
