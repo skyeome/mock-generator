@@ -37,6 +37,61 @@ npm run deploy
 # or similar package manager command
 ```
 
+## AI-Enhanced Mock Data Generation
+
+This project supports AI-powered semantic detection using Cloudflare Workers AI. When enabled, the AI analyzes your entire schema to:
+
+- **Detect semantic types** for fields with complex names (e.g., `buyerFirstName` → firstName)
+- **Identify domain context** (e-commerce, healthcare, social media, etc.)
+- **Group related fields** for coherent data generation (same person's name and email)
+
+### Configuration
+
+AI enhancement is configured via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AI_ENABLED` | `true` | Enable/disable AI enhancement |
+| `AI_MODEL` | `@cf/meta/llama-3.1-8b-instruct` | Cloudflare Workers AI model |
+| `AI_MAX_TOKENS` | `1024` | Maximum tokens for AI response |
+| `AI_TEMPERATURE` | `0.7` | AI response temperature (0-2) |
+| `AI_FALLBACK_ON_ERROR` | `true` | Fall back to regex on AI errors |
+
+### Local Development
+
+For local development, add these to your `.dev.vars` file:
+
+```bash
+AI_ENABLED=true
+AI_MODEL=@cf/meta/llama-3.1-8b-instruct
+```
+
+Note: AI features require `wrangler dev --remote` to access Cloudflare Workers AI.
+
+### Example Improvement
+
+**Without AI (regex-based):**
+```json
+{
+  "buyerFirstName": "xK7mP2",
+  "buyerLastName": "qW9nL4",
+  "buyerEmail": "test@example.com"
+}
+```
+
+**With AI enhancement:**
+```json
+{
+  "buyerFirstName": "John",
+  "buyerLastName": "Smith",
+  "buyerEmail": "john.smith@example.com"
+}
+```
+
+### Disabling AI
+
+To use only regex-based detection, set `AI_ENABLED=false` in your environment or `.dev.vars` file.
+
 ## Learn More
 
 To learn more about Next.js, take a look at the following resources:

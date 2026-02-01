@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pnpm run build:*)",
+      "Bash(pnpm test:*)",
+      "Bash(pnpm test:run:*)",
+      "Bash(pnpm add:*)",
+      "mcp__stitch__create_project",
+      "mcp__stitch__generate_screen_from_text",
+      "mcp__stitch__list_screens",
+      "mcp__stitch__get_screen",
+      "WebFetch(domain:contribution.usercontent.google.com)",
+      "mcp__playwright__browser_navigate",
+      "mcp__playwright__browser_type",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_close",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "Bash(grep:*)",
+      "Read(//Users/skyome1223/Repositories/mock-generator/**)",
+      "Bash(ls:*)",
+      "Bash(pnpm tsc:*)"
+    ],
+    "additionalDirectories": [
+      "/Users/skyome1223/Repositories/mock-generator/.omc/plans"
+    ]
+  }
+}

@@ -1,52 +1,155 @@
-import Image from "next/image";
+'use client';
+
+import { useMemo } from 'react';
+import { JsonInput } from '@/components/editor/json-input';
+import { SchemaView } from '@/components/editor/schema-view';
+import { DataPreview } from '@/components/output/data-preview';
+import { FormatSelector } from '@/components/output/format-selector';
+import { ExportActions } from '@/components/output/export-actions';
+import { Button } from '@/components/ui/button';
+import { useSchemaStore } from '@/store/schema-store';
+import { useGeneratorStore } from '@/store/generator-store';
+import { useExportStore } from '@/store/export-store';
+import { useSchemaInference } from '@/hooks/use-schema-inference';
+import { useMockGeneration } from '@/hooks/use-mock-generation';
+import { useExport } from '@/hooks/use-export';
+import type { JsonSchema } from '@/lib/types';
+
+interface SchemaField {
+  name: string;
+  type: string;
+  semanticType?: string;
+  children?: SchemaField[];
+  isArray?: boolean;
+}
+
+function getSchemaFieldCount(schema: JsonSchema | null): number {
+  if (!schema) return 0;
+  // Handle array schema - count fields from items
+  if (schema.type === 'array' && schema.items && !Array.isArray(schema.items)) {
+    return Object.keys(schema.items.properties || {}).length;
+  }
+  return Object.keys(schema.properties || {}).length;
+}
+
+function convertSchemaToFields(schema: JsonSchema | null): SchemaField[] {
+  if (!schema) return [];
+
+  // Handle array schema - extract fields from items
+  let targetSchema = schema;
+  if (schema.type === 'array' && schema.items && !Array.isArray(schema.items)) {
+    targetSchema = schema.items;
+  }
+
+  if (!targetSchema.properties) return [];
+
+  return Object.entries(targetSchema.properties).map(([name, propSchema]) => {
+    const type = Array.isArray(propSchema.type) ? propSchema.type[0] : propSchema.type;
+    const field: SchemaField = {
+      name,
+      type: type || 'unknown',
+    };
+
+    // Add semantic type if available
+    if (propSchema['x-faker']) {
+      field.semanticType = propSchema['x-faker'].method;
+    }
+
+    // Handle arrays
+    if (type === 'array' && propSchema.items) {
+      field.isArray = true;
+      const itemSchema = Array.isArray(propSchema.items) ? propSchema.items[0] : propSchema.items;
+      if (itemSchema.properties) {
+        field.children = convertSchemaToFields(itemSchema);
+      }
+    }
+
+    // Handle nested objects
+    if (type === 'object' && propSchema.properties) {
+      field.children = convertSchemaToFields(propSchema);
+    }
+
+    return field;
+  });
+}
 
 export default function Home() {
-	return (
-		<div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-			<main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-				<Image className="dark:invert" src="/next.svg" alt="Next.js logo" width={180} height={38} priority />
-				<ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-					<li className="mb-2 tracking-[-.01em]">
-						Get started by editing{" "}
-						<code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-							src/app/page.tsx
-						</code>
-						.
-					</li>
-					<li className="tracking-[-.01em]">Save and see your changes instantly.</li>
-				</ol>
+  const { inputJson, setInputJson, schema, parseError } = useSchemaStore();
+  const { count, setCount, generatedData, isGenerating } = useGeneratorStore();
+  const { format, setFormat } = useExportStore();
 
-				<div className="flex gap-4 items-center flex-col sm:flex-row">
-					<a
-						className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-						href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-						target="_blank"
-						rel="noopener noreferrer"
-					>
-						Read our docs
-					</a>
-				</div>
-			</main>
-			<footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-				<a
-					className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-					href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					<Image aria-hidden src="/file.svg" alt="File icon" width={16} height={16} />
-					Learn
-				</a>
-				<a
-					className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-					href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-					target="_blank"
-					rel="noopener noreferrer"
-				>
-					<Image aria-hidden src="/globe.svg" alt="Globe icon" width={16} height={16} />
-					Go to nextjs.org →
-				</a>
-			</footer>
-		</div>
-	);
+  useSchemaInference();
+  const { generate } = useMockGeneration();
+  const { exportData } = useExport();
+
+  // Convert schema to fields for SchemaView
+  const schemaFields = useMemo(() => convertSchemaToFields(schema), [schema]);
+
+  // Export data for preview
+  const exportedData = useMemo(() => {
+    if (!generatedData || generatedData.length === 0) return null;
+    const result = exportData();
+    return result?.content || null;
+  }, [generatedData, exportData]);
+
+  return (
+    <div className="min-h-screen bg-zinc-900 text-zinc-100">
+      {/* Header */}
+      <header className="sticky top-0 z-10 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 px-6 py-4">
+        <h1 className="text-xl font-bold text-emerald-400">Mock Data Generator</h1>
+      </header>
+
+      {/* Main content - split layout */}
+      <main className="flex h-[calc(100vh-65px)]">
+        {/* Left panel - JSON Input */}
+        <div className="w-2/5 p-4 border-r border-zinc-800">
+          <JsonInput value={inputJson} onChange={setInputJson} error={parseError} />
+        </div>
+
+        {/* Right panel - Schema & Output */}
+        <div className="flex-1 flex flex-col p-4">
+          {/* Tabs and controls */}
+          <div className="flex items-center justify-between mb-4">
+            <FormatSelector value={format} onChange={setFormat} />
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                value={count}
+                onChange={(e) => setCount(Number(e.target.value))}
+                min={1}
+                max={1000}
+                className="w-20 px-2 py-1 bg-zinc-800 border border-zinc-700 rounded text-sm"
+              />
+              <Button onClick={generate} loading={isGenerating} disabled={!schema}>
+                Generate
+              </Button>
+            </div>
+          </div>
+
+          {/* Content area */}
+          <div className="flex-1 overflow-hidden">
+            {exportedData ? (
+              <DataPreview data={exportedData} format={format} />
+            ) : (
+              <SchemaView schema={schemaFields} />
+            )}
+          </div>
+
+          {/* Export actions */}
+          {exportedData && (
+            <ExportActions
+              data={exportedData}
+              format={format}
+              recordCount={generatedData.length}
+            />
+          )}
+        </div>
+      </main>
+
+      {/* Status bar */}
+      <footer className="fixed bottom-0 left-0 right-0 bg-zinc-950 border-t border-zinc-800 px-4 py-2 text-xs text-zinc-500">
+        {schema ? `Schema detected: ${getSchemaFieldCount(schema)} fields` : 'Paste JSON to get started'}
+      </footer>
+    </div>
+  );
 }

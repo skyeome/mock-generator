@@ -1,0 +1,12 @@
+{
+  "active": false,
+  "mode": "ralplan",
+  "iteration": 1,
+  "max_iterations": 5,
+  "plan_path": ".omc/plans/ai-mock-generation.md",
+  "current_phase": "complete",
+  "started_at": "2026-02-01T16:38:00Z",
+  "completed_at": "2026-02-01T16:40:00Z",
+  "task_description": "AI로 데이터를 더 정교하게 문맥을 파악하고 mock data를 생성. Cloudflare Workers AI 사용.",
+  "result": "APPROVED"
+}

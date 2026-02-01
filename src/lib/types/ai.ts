@@ -1,0 +1,43 @@
+import type { SemanticType } from './schema';
+
+/**
+ * Hint for a single field from AI analysis
+ */
+export interface AISemanticHint {
+  fieldPath: string;
+  suggestedSemantic: SemanticType;
+  confidence: number; // 0-1
+  reasoning?: string;
+  relatedFields?: string[]; // Fields that should be coherent
+}
+
+/**
+ * Complete AI analysis result for a schema
+ */
+export interface AISchemaAnalysis {
+  domainContext: string; // e.g., "e-commerce", "social-media"
+  fieldHints: AISemanticHint[];
+  coherenceGroups: string[][]; // Fields that should be generated together
+}
+
+/**
+ * Configuration for AI service
+ */
+export interface AIConfig {
+  enabled: boolean;
+  model: string;
+  maxTokens: number;
+  temperature: number;
+  fallbackOnError: boolean;
+}
+
+/**
+ * Default AI configuration
+ */
+export const DEFAULT_AI_CONFIG: AIConfig = {
+  enabled: true,
+  model: '@cf/meta/llama-3.1-8b-instruct',
+  maxTokens: 1024,
+  temperature: 0.7,
+  fallbackOnError: true,
+};
