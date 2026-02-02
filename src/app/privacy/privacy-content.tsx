@@ -272,7 +272,7 @@ export default function PrivacyContent() {
                   </p>
                   <p>
                     <strong>Contact:</strong> For privacy-related questions,
-                    please email privacy@mockdatagenerator.com
+                    please email privacy@ai-utils.work
                   </p>
                 </div>
               </div>

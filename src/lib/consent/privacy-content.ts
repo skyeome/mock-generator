@@ -11,15 +11,15 @@ export const PRIVACY_POLICY_METADATA = {
   lastUpdated: '2026-02-02',
   language: 'ko',
   applicationName: 'Mock Data Generator',
-  applicationURL: 'https://mockdatagenerator.com',
+  applicationURL: 'https://ai-utils.work',
   dataControllerName: 'Mock Data Generator',
-  dataControllerEmail: 'privacy@mockdatagenerator.com',
+  dataControllerEmail: 'privacy@ai-utils.work',
 };
 
 export const PRIVACY_POLICY_SECTIONS = {
   introduction: {
     title: '개요',
-    content: `Mock Data Generator(이하 "당사")는 귀하의 개인정보 보호를 매우 중요하게 생각합니다. 이 개인정보 처리방침(이하 "방침")은 당사의 웹 애플리케이션 https://mockdatagenerator.com(이하 "서비스")을 이용할 때 수집되는 개인정보의 처리 방식을 설명합니다.
+    content: `Mock Data Generator(이하 "당사")는 귀하의 개인정보 보호를 매우 중요하게 생각합니다. 이 개인정보 처리방침(이하 "방침")은 당사의 웹 애플리케이션 https://ai-utils.work(이하 "서비스")을 이용할 때 수집되는 개인정보의 처리 방식을 설명합니다.
 
 당사는 GDPR(일반 데이터 보호 규정) 및 기타 적용되는 개인정보 보호 법률을 준수하고 있습니다. 귀하의 개인정보는 법적 근거에 따라서만 처리되며, 귀하는 항상 귀하의 데이터에 대한 통제권을 유지합니다.
 
@@ -365,7 +365,7 @@ export const PRIVACY_POLICY_SECTIONS = {
 **귀하의 권리**
 - 데이터 전송 거부: 제3자 서비스 거부 가능 (기본 기능 제외)
 - 정보 요청: 전송 세부사항 공개 요청 가능
-- 이의 제기: privacy@mockdatagenerator.com으로 문의
+- 이의 제기: privacy@ai-utils.work으로 문의
 
 **추가 정보**
 - EU 개인정보 보호 위원회 (EDPB) 권고사항: EDPB/00/2020
@@ -384,7 +384,7 @@ export const PRIVACY_POLICY_SECTIONS = {
   - 제3자 공유 여부
   - 보관 기간
   - 데이터 소스
-- 요청 방법: privacy@mockdatagenerator.com으로 이메일 전송
+- 요청 방법: privacy@ai-utils.work으로 이메일 전송
 - 응답 기간: 30일 (연장 가능)
 - 비용: 원칙적으로 무료
 
@@ -393,7 +393,7 @@ export const PRIVACY_POLICY_SECTIONS = {
 - 예시:
   - 잘못된 언어 설정 수정
   - 오류가 있는 선호도 정정
-- 요청 방법: privacy@mockdatagenerator.com으로 연락
+- 요청 방법: privacy@ai-utils.work으로 연락
 - 당사는 합리적인 기간 내에 수정합니다
 
 **3. 삭제권 (Right to Erasure/Right to be Forgotten, GDPR Article 17)**
@@ -413,7 +413,7 @@ export const PRIVACY_POLICY_SECTIONS = {
   - 법적 의무가 있는 데이터 (예: 사기 조사)
   - 공익 목적 데이터
 
-- 요청 방법: privacy@mockdatagenerator.com으로 "삭제 요청"
+- 요청 방법: privacy@ai-utils.work으로 "삭제 요청"
 - 응답 기간: 30일 이내
 
 **4. 처리 제한권 (Right to Restrict Processing, GDPR Article 18)**
@@ -427,7 +427,7 @@ export const PRIVACY_POLICY_SECTIONS = {
   - 해당 데이터는 저장만 되고 처리되지 않음
   - 동의 철회 시까지 또는 이의 해결까지 유지
 
-- 요청 방법: privacy@mockdatagenerator.com으로 "처리 제한 요청"
+- 요청 방법: privacy@ai-utils.work으로 "처리 제한 요청"
 
 **5. 데이터 이동권 (Right to Data Portability, GDPR Article 20)**
 - 귀하가 제공한 개인정보를 구조화되고 일반적으로 사용되는 기계 판독 가능한 형식으로 받을 수 있습니다
@@ -440,7 +440,7 @@ export const PRIVACY_POLICY_SECTIONS = {
   - JSON 형식
   - CSV 형식
 
-- 요청 방법: privacy@mockdatagenerator.com으로 "데이터 이동 요청"
+- 요청 방법: privacy@ai-utils.work으로 "데이터 이동 요청"
 - 응답 기간: 30일 이내
 
 **6. 이의 제기권 (Right to Object, GDPR Article 21)**
@@ -454,7 +454,7 @@ export const PRIVACY_POLICY_SECTIONS = {
   - 필수 기능은 계속 작동
   - 새로운 기술적 근거 필요
 
-- 요청 방법: privacy@mockdatagenerator.com으로 "이의 제기"
+- 요청 방법: privacy@ai-utils.work으로 "이의 제기"
 
 **7. 동의 철회권**
 - 동의 기반의 처리에 대해 언제든 동의를 철회할 수 있습니다
@@ -469,7 +469,7 @@ export const PRIVACY_POLICY_SECTIONS = {
 
 - 요청 방법:
   - 쿠키 배너에서 직접 설정 변경
-  - 또는 privacy@mockdatagenerator.com으로 이메일
+  - 또는 privacy@ai-utils.work으로 이메일
 
 **8. 자동화된 개별 결정에 대한 권리 (GDPR Article 22)**
 - 귀하의 권리에만 영향을 미치는 자동화된 개별적 의사결정 대상이 되지 않을 권리
@@ -490,7 +490,7 @@ export const PRIVACY_POLICY_SECTIONS = {
 - 귀하는 변호사 또는 권리 옹호자를 통해 권리를 행사할 수 있습니다
 
 **권리 행사 절차**
-1단계: 요청 작성 (이메일로 privacy@mockdatagenerator.com)
+1단계: 요청 작성 (이메일로 privacy@ai-utils.work)
 2단계: 신원 확인 (본인 확인을 위한 추가 정보 요청 가능)
 3단계: 처리 (30일 이내, 복잡한 경우 60일까지 연장 가능)
 4단계: 응답 및 조치 (이메일로 회신)
@@ -545,7 +545,7 @@ GDPR 제8조에 따라 아동은 16세 미만의 인물입니다 (국가별로 �
      - 접근 (GDPR Article 15)
      - 삭제 (GDPR Article 17)
      - 수정 (GDPR Article 16)
-   - 요청: privacy@mockdatagenerator.com으로 부모 신원 증명과 함께 연락
+   - 요청: privacy@ai-utils.work으로 부모 신원 증명과 함께 연락
 
 6. **부모 또는 보호자의 책임**
    - 아동의 온라인 활동 감시 및 지도
@@ -554,7 +554,7 @@ GDPR 제8조에 따라 아동은 16세 미만의 인물입니다 (국가별로 �
 
 **아동 관련 연락처**
 아동 개인정보 문제가 있는 경우:
-- 이메일: privacy@mockdatagenerator.com
+- 이메일: privacy@ai-utils.work
 - 제목: "아동 개인정보 보호 관련"
 
 **추가 정보**
@@ -605,7 +605,7 @@ GDPR 제8조에 따라 아동은 16세 미만의 인물입니다 (국가별로 �
 **이전 버전 정책**
 귀하는 다음 방법으로 이전 버전의 정책을 확인할 수 있습니다:
 - GitHub 저장소: https://github.com/your-repo/commits/privacy
-- 당사에 이메일 요청: privacy@mockdatagenerator.com
+- 당사에 이메일 요청: privacy@ai-utils.work
 
 **정책 버전 관리**
 - 최신 버전: 2026-02-02
@@ -613,7 +613,7 @@ GDPR 제8조에 따라 아동은 16세 미만의 인물입니다 (국가별로 �
 
 **피드백 및 제안**
 귀하의 개인정보 보호 관련 의견과 제안을 환영합니다:
-- 이메일: privacy@mockdatagenerator.com
+- 이메일: privacy@ai-utils.work
 - 제목: "정책 피드백" 또는 "개선 제안"
 
 **변경 이력**
@@ -629,8 +629,8 @@ GDPR 제8조에 따라 아동은 16세 미만의 인물입니다 (국가별로 �
 Mock Data Generator는 GDPR에서 정의한 데이터 컨트롤러로서 귀하의 개인정보 처리에 대한 책임을 집니다.
 
 조직명: Mock Data Generator
-웹사이트: https://mockdatagenerator.com
-이메일: privacy@mockdatagenerator.com
+웹사이트: https://ai-utils.work
+이메일: privacy@ai-utils.work
 주소: [회사 주소 입력]
 대표자: [대표자명]
 
@@ -639,14 +639,14 @@ Mock Data Generator는 GDPR에서 정의한 데이터 컨트롤러로서 귀하�
 개인정보 보호와 관련된 모든 문의는 다음 부서로 연락주세요:
 
 부서명: Privacy & Compliance Team
-이메일: privacy@mockdatagenerator.com
+이메일: privacy@ai-utils.work
 응답 시간: 영업일 기준 2-3일
 언어: 한국어, 영어
 
 **요청 유형별 연락처**
 
 1. **개인정보 접근/수정/삭제 요청**
-   - 이메일: privacy@mockdatagenerator.com
+   - 이메일: privacy@ai-utils.work
    - 제목: "개인정보 [접근/수정/삭제] 요청"
    - 포함 내용:
      - 요청자 이름
@@ -655,16 +655,16 @@ Mock Data Generator는 GDPR에서 정의한 데이터 컨트롤러로서 귀하�
      - 필요한 경우 신원 증명 정보
 
 2. **데이터 유출 보고**
-   - 이메일: security@mockdatagenerator.com (긴급)
+   - 이메일: security@ai-utils.work (긴급)
    - 제목: "데이터 유출 보고"
    - 즉시 연락 권장 (지연 시간 최소화)
 
 3. **개인정보 보호 정책 관련 문의**
-   - 이메일: privacy@mockdatagenerator.com
-   - FAQ 페이지: https://mockdatagenerator.com/privacy-faq
+   - 이메일: privacy@ai-utils.work
+   - FAQ 페이지: https://ai-utils.work/privacy-faq
 
 4. **불만 제기**
-   - 1차: 당사에 직접 연락 (privacy@mockdatagenerator.com)
+   - 1차: 당사에 직접 연락 (privacy@ai-utils.work)
    - 2차: 해당 국가의 데이터 보호 당국
 
 **응답 약속**
@@ -681,7 +681,7 @@ Mock Data Generator는 GDPR에서 정의한 데이터 컨트롤러로서 귀하�
 법원 명령이나 법 집행 기관의 요청에 대해:
 
 연락처:
-- 법무담당: legal@mockdatagenerator.com
+- 법무담당: legal@ai-utils.work
 - 긴급: [긴급 연락처]
 
 당사는 법적 요청에 대해:
@@ -723,7 +723,7 @@ https://edpb.ec.europa.eu/about-edpb/members_en
 **응급 연락처**
 
 데이터 유출이나 긴급 개인정보 보호 사건의 경우:
-- 이메일: security@mockdatagenerator.com
+- 이메일: security@ai-utils.work
 - 이메일 응답 시간: 2시간 이내 (업무시간)
 - 24시간 긴급 핫라인: [전화번호] (제공 시)
 

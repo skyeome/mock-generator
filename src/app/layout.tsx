@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-	metadataBase: new URL('https://mockdatagenerator.com'),
+	metadataBase: new URL('https://ai-utils.work'),
 	title: {
 		default: 'Mock Data Generator - AI-Powered Test Data Generation',
 		template: '%s | Mock Data Generator',

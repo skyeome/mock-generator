@@ -50,5 +50,7 @@ next-env.d.ts
 
 
 !.dev.vars.example
-#oh my claudecode
+# claudecode
 /.omc
+/.serena
+/.playwright-mcp

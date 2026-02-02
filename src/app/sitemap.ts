@@ -26,8 +26,17 @@ const LANDING_PAGES = [
   '/generators/fake-dates',
 ];
 
+// i18n landing pages
+const INTL_PAGES = [
+  '/intl',
+  '/intl/translate-json',
+  '/intl/i18n-diff',
+  '/intl/translation-sync',
+  '/intl/json-localization',
+];
+
 export default function sitemap(): MetadataRoute.Sitemap {
-  const baseUrl = 'https://mockdatagenerator.com';
+  const baseUrl = 'https://ai-utils.work';
 
   return [
     {
@@ -37,6 +46,19 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 1,
     },
     ...LANDING_PAGES.map((path) => ({
+      url: `${baseUrl}${path}`,
+      lastModified: new Date(),
+      changeFrequency: 'monthly' as const,
+      priority: 0.8,
+    })),
+    // i18n pages - main tool gets higher priority
+    {
+      url: `${baseUrl}/intl`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly' as const,
+      priority: 0.9,
+    },
+    ...INTL_PAGES.filter((path) => path !== '/intl').map((path) => ({
       url: `${baseUrl}${path}`,
       lastModified: new Date(),
       changeFrequency: 'monthly' as const,

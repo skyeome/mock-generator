@@ -40,10 +40,27 @@
       "Bash(pnpm test:coverage:*)",
       "Bash(npx tsx:*)",
       "Bash(pnpm run lint:*)",
-      "mcp__playwright__browser_run_code"
+      "mcp__playwright__browser_run_code",
+      "mcp__playwright__browser_console_messages",
+      "mcp__serena__list_dir",
+      "mcp__serena__get_symbols_overview",
+      "mcp__serena__activate_project",
+      "mcp__serena__initial_instructions",
+      "mcp__serena__find_file",
+      "mcp__serena__search_for_pattern",
+      "mcp__serena__write_memory",
+      "mcp__playwright__browser_file_upload",
+      "mcp__playwright__browser_network_requests",
+      "Bash(find:*)",
+      "Bash(npx next lint:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm next lint:*)",
+      "mcp__plugin_oh-my-claudecode_t__lsp_diagnostics",
+      "Bash(pnpm next build:*)"
     ],
     "additionalDirectories": [
-      "/Users/skyome1223/Repositories/mock-generator/.omc/plans"
+      "/Users/skyome1223/Repositories/mock-generator/.omc/plans",
+      "/Users/skyome1223/Repositories/mock-generator/.omc"
     ]
   }
 }
