@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getCloudflareContext } from '@opennextjs/cloudflare';
 
-export const runtime = 'edge';
-
 const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV === 'development';
 
 interface TranslateRequest {
