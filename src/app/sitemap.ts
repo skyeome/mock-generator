@@ -37,32 +37,71 @@ const INTL_PAGES = [
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://ai-utils.work';
+  const now = new Date();
 
   return [
+    // Landing page - highest priority
     {
       url: baseUrl,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'weekly',
-      priority: 1,
+      priority: 1.0,
     },
-    ...LANDING_PAGES.map((path) => ({
-      url: `${baseUrl}${path}`,
-      lastModified: new Date(),
-      changeFrequency: 'monthly' as const,
-      priority: 0.8,
-    })),
-    // i18n pages - main tool gets higher priority
+    // Mock generator - core feature
     {
-      url: `${baseUrl}/intl`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
+      url: `${baseUrl}/mock`,
+      lastModified: now,
+      changeFrequency: 'weekly',
       priority: 0.9,
     },
+    // i18n tool - main feature
+    {
+      url: `${baseUrl}/intl`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    },
+    // Privacy page
+    {
+      url: `${baseUrl}/privacy`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.3,
+    },
+    // Generator pages - high priority for SEO
+    ...LANDING_PAGES.filter((path) => path.startsWith('/generators/')).map((path) => ({
+      url: `${baseUrl}${path}`,
+      lastModified: now,
+      changeFrequency: 'weekly' as const,
+      priority: 0.8,
+    })),
+    // Mock data pages - high priority for SEO
+    ...LANDING_PAGES.filter((path) => path.startsWith('/mock-data/')).map((path) => ({
+      url: `${baseUrl}${path}`,
+      lastModified: now,
+      changeFrequency: 'weekly' as const,
+      priority: 0.8,
+    })),
+    // Tools pages - high priority for SEO
+    ...LANDING_PAGES.filter((path) => path.startsWith('/tools/')).map((path) => ({
+      url: `${baseUrl}${path}`,
+      lastModified: now,
+      changeFrequency: 'weekly' as const,
+      priority: 0.8,
+    })),
+    // Use case pages - medium priority
+    ...LANDING_PAGES.filter((path) => path.startsWith('/use-cases/')).map((path) => ({
+      url: `${baseUrl}${path}`,
+      lastModified: now,
+      changeFrequency: 'weekly' as const,
+      priority: 0.7,
+    })),
+    // i18n sub-pages
     ...INTL_PAGES.filter((path) => path !== '/intl').map((path) => ({
       url: `${baseUrl}${path}`,
-      lastModified: new Date(),
+      lastModified: now,
       changeFrequency: 'monthly' as const,
-      priority: 0.8,
+      priority: 0.6,
     })),
   ];
 }

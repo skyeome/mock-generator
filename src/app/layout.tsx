@@ -16,44 +16,36 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
 	metadataBase: new URL('https://ai-utils.work'),
 	title: {
-		default: 'Mock Data Generator - AI-Powered Test Data Generation',
-		template: '%s | Mock Data Generator',
+		default: 'AI Utils - AI-Powered Developer Tools',
+		template: '%s | AI Utils',
 	},
 	description:
-		'Generate realistic mock data from JSON schemas. AI-powered semantic detection, export to JSON, CSV, SQL, TypeScript. 100% free, runs in your browser.',
+		'Free, fast, and privacy-first AI-powered developer utilities. Mock data generator, code formatter, JSON validator, and more. 100% free, runs in your browser.',
 	keywords: [
-		'mock data',
-		'test data generator',
+		'AI tools',
+		'developer utilities',
+		'mock data generator',
+		'test data',
 		'JSON schema',
-		'fake data',
+		'code formatter',
+		'JSON validator',
 		'API testing',
-		'json to csv',
-		'json to sql',
 		'faker.js',
 	],
-	authors: [{ name: 'Mock Data Generator' }],
+	authors: [{ name: 'AI Utils' }],
 	openGraph: {
 		type: 'website',
 		locale: 'en_US',
-		siteName: 'Mock Data Generator',
-		title: 'Mock Data Generator - AI-Powered Test Data Generation',
+		siteName: 'AI Utils',
+		title: 'AI Utils - AI-Powered Developer Tools',
 		description:
-			'Generate realistic mock data from JSON schemas. AI-powered semantic detection, export to JSON, CSV, SQL, TypeScript.',
-		images: [
-			{
-				url: '/og-image.svg',
-				width: 1200,
-				height: 630,
-				alt: 'Mock Data Generator',
-			},
-		],
+			'Free, fast, and privacy-first AI-powered developer utilities. Mock data generator, code formatter, JSON validator, and more.',
 	},
 	twitter: {
 		card: 'summary_large_image',
-		title: 'Mock Data Generator - AI-Powered Test Data Generation',
+		title: 'AI Utils - AI-Powered Developer Tools',
 		description:
-			'Generate realistic mock data from JSON schemas. 100% free, runs in your browser.',
-		images: ['/og-image.svg'],
+			'Free, fast, and privacy-first AI-powered developer utilities. 100% free, runs in your browser.',
 	},
 	robots: {
 		index: true,
