@@ -49,13 +49,13 @@ This project supports AI-powered semantic detection using Cloudflare Workers AI.
 
 AI enhancement is configured via environment variables:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `AI_ENABLED` | `true` | Enable/disable AI enhancement |
-| `AI_MODEL` | `@cf/meta/llama-3.1-8b-instruct` | Cloudflare Workers AI model |
-| `AI_MAX_TOKENS` | `1024` | Maximum tokens for AI response |
-| `AI_TEMPERATURE` | `0.7` | AI response temperature (0-2) |
-| `AI_FALLBACK_ON_ERROR` | `true` | Fall back to regex on AI errors |
+| Variable               | Default                              | Description                     |
+| ---------------------- | ------------------------------------ | ------------------------------- |
+| `AI_ENABLED`           | `true`                               | Enable/disable AI enhancement   |
+| `AI_MODEL`             | `@cf/meta/llama-3.1-8b-instruct-fp8` | Cloudflare Workers AI model     |
+| `AI_MAX_TOKENS`        | `1024`                               | Maximum tokens for AI response  |
+| `AI_TEMPERATURE`       | `0.7`                                | AI response temperature (0-2)   |
+| `AI_FALLBACK_ON_ERROR` | `true`                               | Fall back to regex on AI errors |
 
 ### Local Development
 
@@ -63,7 +63,7 @@ For local development, add these to your `.dev.vars` file:
 
 ```bash
 AI_ENABLED=true
-AI_MODEL=@cf/meta/llama-3.1-8b-instruct
+AI_MODEL=@cf/meta/llama-3.1-8b-instruct-fp8
 ```
 
 Note: AI features require `wrangler dev --remote` to access Cloudflare Workers AI.
@@ -71,6 +71,7 @@ Note: AI features require `wrangler dev --remote` to access Cloudflare Workers A
 ### Example Improvement
 
 **Without AI (regex-based):**
+
 ```json
 {
   "buyerFirstName": "xK7mP2",
@@ -80,6 +81,7 @@ Note: AI features require `wrangler dev --remote` to access Cloudflare Workers A
 ```
 
 **With AI enhancement:**
+
 ```json
 {
   "buyerFirstName": "John",

@@ -2,7 +2,11 @@
  * AI-powered translation client
  */
 
-import { TRANSLATION_SYSTEM_PROMPT, buildTranslationPrompt, TranslationEntry } from './prompts';
+import {
+  TRANSLATION_SYSTEM_PROMPT,
+  buildTranslationPrompt,
+  TranslationEntry,
+} from "./prompts";
 
 export interface I18nTranslationConfig {
   model?: string;
@@ -14,12 +18,12 @@ export interface I18nTranslationConfig {
 }
 
 const DEFAULT_CONFIG: Required<I18nTranslationConfig> = {
-  model: '@cf/meta/llama-3.1-8b-instruct',
+  model: "@cf/meta/llama-3.1-8b-instruct-fp8",
   maxTokens: 2048,
   temperature: 0.3,
   batchSize: 50,
   maxRetries: 3,
-  retryDelayMs: 1000
+  retryDelayMs: 1000,
 };
 
 export class I18nTranslationClient {
@@ -38,12 +42,12 @@ export class I18nTranslationClient {
       targetLocale: string;
       entries: TranslationEntry[];
     },
-    ai?: Ai
+    ai?: Ai,
   ): Promise<Map<string, string>> {
     const { sourceLocale, targetLocale, entries } = params;
 
     if (!ai) {
-      throw new Error('AI binding not available');
+      throw new Error("AI binding not available");
     }
 
     if (entries.length === 0) {
@@ -58,7 +62,7 @@ export class I18nTranslationClient {
     for (const batch of batches) {
       const batchResults = await this.translateBatch(
         { sourceLocale, targetLocale, entries: batch },
-        ai
+        ai,
       );
 
       // Merge batch results into final map
@@ -79,28 +83,31 @@ export class I18nTranslationClient {
       targetLocale: string;
       entries: TranslationEntry[];
     },
-    ai: Ai
+    ai: Ai,
   ): Promise<Map<string, string>> {
     const { sourceLocale, targetLocale, entries } = params;
 
     const prompt = buildTranslationPrompt({
       sourceLocale,
       targetLocale,
-      entries
+      entries,
     });
 
     let lastError: Error | undefined;
 
     for (let attempt = 0; attempt <= this.config.maxRetries; attempt++) {
       try {
-        const response = await ai.run(this.config.model as Parameters<Ai['run']>[0], {
-          messages: [
-            { role: 'system', content: TRANSLATION_SYSTEM_PROMPT },
-            { role: 'user', content: prompt }
-          ],
-          max_tokens: this.config.maxTokens,
-          temperature: this.config.temperature
-        });
+        const response = await ai.run(
+          this.config.model as Parameters<Ai["run"]>[0],
+          {
+            messages: [
+              { role: "system", content: TRANSLATION_SYSTEM_PROMPT },
+              { role: "user", content: prompt },
+            ],
+            max_tokens: this.config.maxTokens,
+            temperature: this.config.temperature,
+          },
+        );
 
         const translated = this.parseResponse(response);
         return translated;
@@ -114,7 +121,7 @@ export class I18nTranslationClient {
       }
     }
 
-    throw lastError || new Error('Translation failed');
+    throw lastError || new Error("Translation failed");
   }
 
   /**
@@ -123,32 +130,32 @@ export class I18nTranslationClient {
   private parseResponse(response: unknown): Map<string, string> {
     // Handle Cloudflare response format
     let content: string;
-    if (typeof response === 'object' && response !== null) {
+    if (typeof response === "object" && response !== null) {
       const resp = response as { response?: string; content?: string };
       content = resp.response || resp.content || JSON.stringify(response);
-    } else if (typeof response === 'string') {
+    } else if (typeof response === "string") {
       content = response;
     } else {
-      throw new Error('Invalid response type from AI');
+      throw new Error("Invalid response type from AI");
     }
 
     let jsonText = content.trim();
 
     // Remove markdown code blocks if present
-    if (jsonText.startsWith('```')) {
-      jsonText = jsonText.replace(/^```(?:json)?\n/, '').replace(/\n```$/, '');
+    if (jsonText.startsWith("```")) {
+      jsonText = jsonText.replace(/^```(?:json)?\n/, "").replace(/\n```$/, "");
     }
 
     const parsed = JSON.parse(jsonText);
 
-    if (typeof parsed !== 'object' || parsed === null) {
-      throw new Error('Invalid translation response format');
+    if (typeof parsed !== "object" || parsed === null) {
+      throw new Error("Invalid translation response format");
     }
 
     const result = new Map<string, string>();
 
     for (const [key, value] of Object.entries(parsed)) {
-      if (typeof value === 'string') {
+      if (typeof value === "string") {
         result.set(key, value);
       }
     }
@@ -159,7 +166,10 @@ export class I18nTranslationClient {
   /**
    * Split entries into batches
    */
-  private createBatches(entries: TranslationEntry[], batchSize: number): TranslationEntry[][] {
+  private createBatches(
+    entries: TranslationEntry[],
+    batchSize: number,
+  ): TranslationEntry[][] {
     const batches: TranslationEntry[][] = [];
 
     for (let i = 0; i < entries.length; i += batchSize) {
@@ -173,6 +183,6 @@ export class I18nTranslationClient {
    * Delay utility for retry backoff
    */
   private delay(ms: number): Promise<void> {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 }

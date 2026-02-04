@@ -1,4 +1,4 @@
-import type { SemanticType } from './schema';
+import type { SemanticType } from "./schema";
 
 /**
  * Hint for a single field from AI analysis
@@ -36,7 +36,7 @@ export interface AIConfig {
  */
 export const DEFAULT_AI_CONFIG: AIConfig = {
   enabled: true,
-  model: '@cf/meta/llama-3.1-8b-instruct',
+  model: "@cf/meta/llama-3.1-8b-instruct-fp8",
   maxTokens: 1024,
   temperature: 0.7,
   fallbackOnError: true,
