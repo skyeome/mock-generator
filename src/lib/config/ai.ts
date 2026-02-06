@@ -5,7 +5,7 @@ import type { AIConfig } from "../types/ai";
  */
 export function getAIConfig(): AIConfig {
   const enabled = getEnvVar("AI_ENABLED", "true") === "true";
-  const model = getEnvVar("AI_MODEL", "@cf/meta/llama-3.1-8b-instruct-fp8");
+  const model = getEnvVar("AI_MODEL", "@cf/meta/llama-3.2-3b-instruct");
   const maxTokens = parseInt(getEnvVar("AI_MAX_TOKENS", "1024"), 10);
   const temperature = parseFloat(getEnvVar("AI_TEMPERATURE", "0.7"));
   const fallbackOnError = getEnvVar("AI_FALLBACK_ON_ERROR", "true") === "true";

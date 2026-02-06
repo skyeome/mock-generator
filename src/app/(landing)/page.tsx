@@ -1,15 +1,27 @@
-'use client';
+"use client";
 
-import Link from 'next/link';
-import { Sparkles, Database, Languages, CheckCircle, Shield, Zap, Eye, Globe } from 'lucide-react';
-import { ThemeToggle } from '@/components/ui/theme-toggle';
+import Link from "next/link";
+import {
+  Sparkles,
+  Database,
+  Languages,
+  CheckCircle,
+  Shield,
+  Zap,
+  Eye,
+  Globe,
+} from "lucide-react";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
 
 export default function LandingPage() {
-  const handleSmoothScroll = (e: React.MouseEvent<HTMLAnchorElement>, targetId: string) => {
+  const handleSmoothScroll = (
+    e: React.MouseEvent<HTMLAnchorElement>,
+    targetId: string,
+  ) => {
     e.preventDefault();
     const element = document.getElementById(targetId);
     if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      element.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
 
@@ -29,14 +41,14 @@ export default function LandingPage() {
             <nav className="hidden md:flex items-center gap-6">
               <a
                 href="#tools"
-                onClick={(e) => handleSmoothScroll(e, 'tools')}
+                onClick={(e) => handleSmoothScroll(e, "tools")}
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Tools
               </a>
               <a
                 href="#about"
-                onClick={(e) => handleSmoothScroll(e, 'about')}
+                onClick={(e) => handleSmoothScroll(e, "about")}
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 About
@@ -55,8 +67,8 @@ export default function LandingPage() {
       <section className="relative overflow-hidden py-20 sm:py-32">
         {/* Abstract geometric decoration */}
         <div className="absolute inset-0 -z-10 overflow-hidden">
-          <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-purple-500/20 to-blue-500/20 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-gradient-to-tr from-blue-500/20 to-purple-500/20 rounded-full blur-3xl" />
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-linear-to-br from-purple-500/20 to-blue-500/20 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-linear-to-tr from-blue-500/20 to-purple-500/20 rounded-full blur-3xl" />
         </div>
 
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
@@ -71,8 +83,8 @@ export default function LandingPage() {
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <a
                 href="#tools"
-                onClick={(e) => handleSmoothScroll(e, 'tools')}
-                className="inline-flex items-center justify-center px-8 py-3 rounded-lg bg-gradient-to-r from-purple-600 to-blue-600 text-white font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                onClick={(e) => handleSmoothScroll(e, "tools")}
+                className="inline-flex items-center justify-center px-8 py-3 rounded-lg bg-linear-to-r from-purple-600 to-blue-600 text-white font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
               >
                 Explore Tools
               </a>
@@ -82,7 +94,9 @@ export default function LandingPage() {
                 className="inline-flex items-center justify-center px-8 py-3 rounded-lg border-2 border-blue-600 text-blue-600 dark:text-blue-400 font-medium hover:bg-blue-600 hover:text-white dark:hover:text-white transition-all duration-200 group"
               >
                 i18n Tools
-                <span className="ml-2 transform group-hover:translate-x-1 transition-transform">→</span>
+                <span className="ml-2 transform group-hover:translate-x-1 transition-transform">
+                  →
+                </span>
               </Link>
             </div>
           </div>
@@ -112,11 +126,14 @@ export default function LandingPage() {
               </div>
               <h3 className="text-xl font-semibold mb-2">i18n Tools</h3>
               <p className="text-muted-foreground text-sm mb-4">
-                Translate JSON files, compare translations, and sync localization across your project
+                Translate JSON files, compare translations, and sync
+                localization across your project
               </p>
               <div className="inline-flex items-center text-sm font-medium text-blue-600 dark:text-blue-400">
                 Try it now
-                <span className="ml-1 transform group-hover:translate-x-1 transition-transform">→</span>
+                <span className="ml-1 transform group-hover:translate-x-1 transition-transform">
+                  →
+                </span>
               </div>
             </Link>
 
@@ -128,13 +145,18 @@ export default function LandingPage() {
               <div className="mb-4 inline-flex p-3 rounded-lg bg-purple-600/10 text-purple-600 dark:text-purple-400">
                 <Database className="w-6 h-6" />
               </div>
-              <h3 className="text-xl font-semibold mb-2">Mock Data Generator</h3>
+              <h3 className="text-xl font-semibold mb-2">
+                Mock Data Generator
+              </h3>
               <p className="text-muted-foreground text-sm mb-4">
-                Generate realistic test data from JSON schemas with AI-powered semantic detection
+                Generate realistic test data from JSON schemas with AI-powered
+                semantic detection
               </p>
               <div className="inline-flex items-center text-sm font-medium text-purple-600 dark:text-purple-400">
                 Try it now
-                <span className="ml-1 transform group-hover:translate-x-1 transition-transform">→</span>
+                <span className="ml-1 transform group-hover:translate-x-1 transition-transform">
+                  →
+                </span>
               </div>
             </Link>
 
@@ -174,7 +196,9 @@ export default function LandingPage() {
                 <Shield className="w-6 h-6" />
               </div>
               <h3 className="font-semibold mb-1">Privacy First</h3>
-              <p className="text-sm text-muted-foreground">Your data stays safe</p>
+              <p className="text-sm text-muted-foreground">
+                Your data stays safe
+              </p>
             </div>
 
             <div className="text-center">
