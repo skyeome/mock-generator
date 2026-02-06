@@ -136,6 +136,7 @@ describe('use-intl-sync', () => {
       };
 
       act(() => {
+        result.current.setSourceJson(JSON.stringify({ new: { key: 'New Key' } }));
         result.current.setDiffResult(diffResult);
         result.current.setSelectedKeys(['new.key']);
       });
@@ -170,6 +171,7 @@ describe('use-intl-sync', () => {
       };
 
       act(() => {
+        result.current.setSourceJson(JSON.stringify({ error: { key: 'Error Key' } }));
         result.current.setDiffResult(diffResult);
         result.current.setSelectedKeys(['error.key']);
       });
@@ -230,7 +232,12 @@ describe('use-intl-sync', () => {
         targetKeyOrder: [],
       };
 
+      const sourceData = Object.fromEntries(
+        operations.map((op, i) => [`key${i}`, `Value ${i}`])
+      );
+
       act(() => {
+        result.current.setSourceJson(JSON.stringify(sourceData));
         result.current.setDiffResult(diffResult);
         result.current.setSelectedKeys(operations.map(op => op.keyPath));
       });
@@ -319,6 +326,7 @@ describe('use-intl-sync', () => {
       };
 
       act(() => {
+        result.current.setSourceJson(JSON.stringify({ new: { key: 'New' }, existing: { key: 'Existing' } }));
         result.current.setTargetJson('{"existing":{"key":"Existing Value"}}');
         result.current.setDiffResult(diffResult);
         result.current.setTranslations([
@@ -350,6 +358,7 @@ describe('use-intl-sync', () => {
       };
 
       act(() => {
+        result.current.setSourceJson(JSON.stringify({ z: 'Z', a: 'A', m: 'M' }));
         result.current.setTargetJson('{"a":"A","m":"M","z":"Z"}');
         result.current.setDiffResult(diffResult);
       });
@@ -391,6 +400,7 @@ describe('use-intl-sync', () => {
       };
 
       act(() => {
+        result.current.setSourceJson(JSON.stringify({ key1: 'Original 1', key2: 'Original 2' }));
         result.current.setTargetJson('{}');
         result.current.setDiffResult(diffResult);
         result.current.setTranslations([
@@ -404,6 +414,194 @@ describe('use-intl-sync', () => {
 
       expect(parsed.key1).toBe('Translated 1');
       expect(parsed.key2).toBeUndefined();
+    });
+  });
+
+  describe('useIntlSync with complex structures', () => {
+    it('should preserve array structure through translation flow', async () => {
+      // Override compareJson mock for this specific test
+      const { compareJson } = await import('@/lib/intl/diff');
+      vi.mocked(compareJson).mockReturnValueOnce({
+        operations: [
+          {
+            type: 'MISSING',
+            keyPath: 'certification.ol',
+            sourceValue: [
+              { title: 'AWS Certified', desc: 'Cloud cert' },
+              { title: 'GCP Associate', desc: 'Google cert' },
+            ],
+            targetValue: undefined
+          },
+        ],
+        stats: { missing: 1, orphaned: 0, typeMismatch: 0, equal: 0 },
+        sourceKeyOrder: ['certification.ol'],
+        targetKeyOrder: [],
+      });
+
+      const mockFetch = vi.fn().mockImplementation(async (url, options) => {
+        const body = JSON.parse(options.body);
+        // Return translated version of input
+        return {
+          ok: true,
+          json: async () => ({
+            translatedText: body.text
+              .replace('AWS Certified', 'AWS 인증')
+              .replace('Cloud cert', '클라우드 자격증')
+              .replace('GCP Associate', 'GCP 어소시에이트')
+              .replace('Google cert', '구글 자격증')
+          }),
+        };
+      });
+      global.fetch = mockFetch;
+
+      const { result } = renderHook(() => useIntlSync());
+
+      const sourceData = {
+        certification: {
+          ol: [
+            { title: 'AWS Certified', desc: 'Cloud cert' },
+            { title: 'GCP Associate', desc: 'Google cert' },
+          ],
+        },
+      };
+
+      // Set up source with array structure - MUST set sourceParsed via setSourceJson
+      act(() => {
+        result.current.setSourceJson(JSON.stringify(sourceData));
+        result.current.setTargetJson('{}');
+      });
+
+      act(() => {
+        result.current.runDiff();
+      });
+
+      // Select the array key
+      act(() => {
+        result.current.setSelectedKeys(['certification.ol']);
+      });
+
+      await act(async () => {
+        await result.current.translateSelected();
+      });
+
+      // Verify translations were created for flattened entries
+      const translations = result.current.translations;
+      expect(translations.length).toBeGreaterThan(0);
+
+      // Verify we got 4 translations (2 items × 2 fields each)
+      expect(translations.length).toBe(4);
+
+      // Verify all translations completed successfully
+      expect(translations.every(t => t.status === 'completed')).toBe(true);
+
+      // Verify keys are flattened with array indices
+      // Keys use dot notation for arrays: certification.ol.0.title, certification.ol.1.desc, etc.
+      const keys = translations.map(t => t.key);
+
+      // Check for array index patterns (either bracket [0] or dot .0. notation)
+      const hasArrayIndices = keys.some(k => k.includes('[0]') || k.includes('.0.')) &&
+                              keys.some(k => k.includes('[1]') || k.includes('.1.'));
+      expect(hasArrayIndices).toBe(true);
+
+      // Verify specific expected keys exist
+      expect(keys).toContain('certification.ol.0.title');
+      expect(keys).toContain('certification.ol.0.desc');
+      expect(keys).toContain('certification.ol.1.title');
+      expect(keys).toContain('certification.ol.1.desc');
+    });
+
+    it('should not convert array to "[object Object]" string', async () => {
+      const { result } = renderHook(() => useIntlSync());
+
+      // Set up source with array
+      act(() => {
+        result.current.setSourceJson(JSON.stringify({
+          items: [{ name: 'Test' }],
+        }));
+      });
+
+      // The original value should never be "[object Object]"
+      const translations = result.current.translations;
+      const hasObjectString = translations.some(t =>
+        t.original.includes('[object Object]')
+      );
+      expect(hasObjectString).toBe(false);
+    });
+  });
+
+  describe('exportResult with array structures', () => {
+    it('should preserve array structure in exported JSON', async () => {
+      // Override compareJson mock for this test to return array structure
+      const { compareJson } = await import('@/lib/intl/diff');
+      vi.mocked(compareJson).mockReturnValueOnce({
+        operations: [
+          { type: 'MISSING', keyPath: 'certification.ol', sourceValue: [
+            { title: 'AWS Certified', desc: 'Cloud cert' },
+            { title: 'GCP Associate', desc: 'Google cert' },
+          ], targetValue: undefined },
+        ],
+        stats: { missing: 1, orphaned: 0, typeMismatch: 0, equal: 0 },
+        sourceKeyOrder: ['certification.ol'],
+        targetKeyOrder: [],
+      });
+
+      const { result } = renderHook(() => useIntlSync());
+
+      // Setup: source with array
+      act(() => {
+        result.current.setSourceJson(JSON.stringify({
+          certification: {
+            ol: [
+              { title: 'AWS Certified', desc: 'Cloud cert' },
+              { title: 'GCP Associate', desc: 'Google cert' },
+            ],
+          },
+        }));
+        result.current.setTargetJson('{}');
+      });
+
+      // Run diff to set up diffResult
+      act(() => {
+        result.current.runDiff();
+      });
+
+      // Simulate completed translations (as if translateSelected ran)
+      act(() => {
+        useIntlSyncStore.getState().setTranslations([
+          { key: 'certification.ol[0].title', original: 'AWS Certified', translated: 'AWS 인증', status: 'completed' },
+          { key: 'certification.ol[0].desc', original: 'Cloud cert', translated: '클라우드 인증', status: 'completed' },
+          { key: 'certification.ol[1].title', original: 'GCP Associate', translated: 'GCP 어소시에이트', status: 'completed' },
+          { key: 'certification.ol[1].desc', original: 'Google cert', translated: '구글 인증', status: 'completed' },
+        ]);
+      });
+
+      // Export
+      const exported = result.current.exportResult();
+      const parsed = JSON.parse(exported);
+
+      // CRITICAL ASSERTION: ol must be an array, not a string
+      expect(Array.isArray(parsed.certification?.ol)).toBe(true);
+      expect(parsed.certification.ol).toHaveLength(2);
+      expect(parsed.certification.ol[0].title).toBe('AWS 인증');
+      expect(parsed.certification.ol[1].desc).toBe('구글 인증');
+
+      // Must NOT contain [object Object]
+      expect(exported).not.toContain('[object Object]');
+    });
+
+    it('should handle basePath extraction correctly for nested arrays', () => {
+      // Test the key transformation logic
+      const testCases = [
+        { key: 'certification.ol[0].title', basePath: 'certification.ol', expected: '[0].title' },
+        { key: 'items[0]', basePath: 'items', expected: '[0]' },
+        { key: 'matrix[0][1]', basePath: 'matrix', expected: '[0][1]' },
+        { key: 'a.b.c[0].d', basePath: 'a.b.c', expected: '[0].d' },
+      ];
+
+      for (const { key, basePath, expected } of testCases) {
+        const relativePath = key.substring(basePath.length);
+        expect(relativePath).toBe(expected);
+      }
     });
   });
 });

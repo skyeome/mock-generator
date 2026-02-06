@@ -5,6 +5,8 @@ import { useIntlSyncStore } from '@/store/intl-store';
 import { compareJson } from '@/lib/intl/diff';
 import { maskVariables, unmaskVariables } from '@/lib/intl/mask';
 import { validateTranslations } from '@/lib/intl/validate';
+import { flattenToEntries, reconstructFromEntries } from '@/lib/intl/translation/chunker';
+import { setNestedValue, getNestedValue } from '@/lib/intl/utils/flatten';
 import type { TranslationEntry } from '@/store/intl-store';
 
 export function useIntlSync() {
@@ -25,9 +27,9 @@ export function useIntlSync() {
 
   const translateSelected = useCallback(async () => {
     const state = useIntlSyncStore.getState();
-    const { selectedKeys, diffResult, sourceLocale, targetLocale } = state;
+    const { selectedKeys, diffResult, sourceLocale, targetLocale, sourceParsed } = state;
 
-    if (!diffResult || selectedKeys.length === 0) {
+    if (!diffResult || selectedKeys.length === 0 || !sourceParsed) {
       return;
     }
 
@@ -36,17 +38,36 @@ export function useIntlSync() {
 
     try {
       // Prepare translation entries from selected missing keys
-      const entries: TranslationEntry[] = selectedKeys.map(key => {
-        const operation = diffResult.operations.find(op => op.keyPath === key);
-        const originalValue = operation?.sourceValue as string || '';
+      const entries: TranslationEntry[] = [];
 
-        return {
-          key,
-          original: originalValue,
-          translated: '',
-          status: 'pending' as const,
-        };
-      });
+      for (const key of selectedKeys) {
+        const operation = diffResult.operations.find(op => op.keyPath === key);
+        if (!operation) continue;
+
+        const sourceValue = operation.sourceValue;
+
+        // Handle complex structures (arrays/objects) by flattening
+        if (typeof sourceValue === 'object' && sourceValue !== null) {
+          const flattened = flattenToEntries(sourceValue as Record<string, unknown>, key);
+          for (const flatEntry of flattened) {
+            entries.push({
+              key: flatEntry.key,
+              original: flatEntry.value,
+              translated: '',
+              status: 'pending' as const,
+            });
+          }
+        } else if (typeof sourceValue === 'string') {
+          // Handle simple string values
+          entries.push({
+            key,
+            original: sourceValue,
+            translated: '',
+            status: 'pending' as const,
+          });
+        }
+        // Skip non-string, non-object values (numbers, booleans, null)
+      }
 
       state.setTranslations(entries);
 
@@ -126,50 +147,72 @@ export function useIntlSync() {
 
   const exportResult = useCallback(() => {
     const state = useIntlSyncStore.getState();
-    const { targetParsed, translations, diffResult } = state;
+    const { targetParsed, translations, diffResult, sourceParsed } = state;
 
-    if (!targetParsed || !diffResult) {
+    if (!targetParsed || !diffResult || !sourceParsed) {
       return '';
     }
 
     // Merge translations into target
     const merged = { ...targetParsed };
 
+    // Group translations by basePath (parent path before array indices)
+    const translationsByBasePath = new Map<string, TranslationEntry[]>();
+
     for (const translation of translations) {
       if (translation.status === 'completed') {
-        const keys = translation.key.split('.');
-        let current: any = merged;
+        // CRITICAL: Extract basePath correctly
+        // Example: "items[0].name" -> "items"
+        // Example: "items[0].tags[1]" -> "items"
+        // Example: "user.name" -> "user.name"
+        const bracketIndex = translation.key.indexOf('[');
+        const basePath = bracketIndex === -1
+          ? translation.key
+          : translation.key.substring(0, bracketIndex);
 
-        for (let i = 0; i < keys.length - 1; i++) {
-          if (!(keys[i] in current)) {
-            current[keys[i]] = {};
-          }
-          current = current[keys[i]];
+        if (!translationsByBasePath.has(basePath)) {
+          translationsByBasePath.set(basePath, []);
         }
+        translationsByBasePath.get(basePath)!.push(translation);
+      }
+    }
 
-        current[keys[keys.length - 1]] = translation.translated;
+    // Process each basePath
+    for (const [basePath, entries] of translationsByBasePath) {
+      // Check if any entry has array notation
+      const hasArrayNotation = entries.some(e => e.key.includes('['));
+
+      if (hasArrayNotation) {
+        // Complex structure with arrays - use reconstructFromEntries
+        // Get original structure from sourceParsed
+        const originalStructure = getNestedValue(sourceParsed, basePath) as Record<string, unknown>;
+
+        // Convert TranslationEntry[] to the format expected by reconstructFromEntries
+        // Remove basePath prefix to get relative path for reconstruction
+        const entriesForReconstruct = entries.map(e => ({
+          key: e.key.substring(basePath.length),
+          value: e.translated
+        }));
+
+        const reconstructed = reconstructFromEntries(entriesForReconstruct, originalStructure);
+
+        // Set the reconstructed value at basePath
+        setNestedValue(merged, basePath, reconstructed);
+      } else {
+        // Simple string value - use setNestedValue directly
+        for (const entry of entries) {
+          setNestedValue(merged, entry.key, entry.translated);
+        }
       }
     }
 
     // Reorder keys to match source
     const reordered: Record<string, unknown> = {};
     for (const key of diffResult.sourceKeyOrder) {
-      const keys = key.split('.');
-      let sourceValue: any = merged;
+      const value = getNestedValue(merged, key);
 
-      for (const k of keys) {
-        sourceValue = sourceValue?.[k];
-      }
-
-      if (sourceValue !== undefined) {
-        let current: any = reordered;
-        for (let i = 0; i < keys.length - 1; i++) {
-          if (!(keys[i] in current)) {
-            current[keys[i]] = {};
-          }
-          current = current[keys[i]];
-        }
-        current[keys[keys.length - 1]] = sourceValue;
+      if (value !== undefined) {
+        setNestedValue(reordered, key, value);
       }
     }
 

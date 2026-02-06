@@ -54,15 +54,75 @@ export function unflattenJson(
 }
 
 /**
- * Gets a value from a nested object using dot-notation path.
+ * Parses a path string into segments, handling both dot notation and bracket notation.
+ *
+ * @param path - The path string (e.g., "user.items[0].name" or "a.b.c")
+ * @returns Array of path segments
+ *
+ * @example
+ * parsePath("user.items[0].name")
+ * // ["user", "items", "0", "name"]
+ *
+ * parsePath("a.b.c")
+ * // ["a", "b", "c"]
+ */
+export function parsePath(path: string): string[] {
+  if (path === '') {
+    return [];
+  }
+
+  const segments: string[] = [];
+  let current = '';
+  let i = 0;
+
+  while (i < path.length) {
+    const char = path[i];
+
+    if (char === '.') {
+      if (current) {
+        segments.push(current);
+        current = '';
+      }
+      i++;
+    } else if (char === '[') {
+      if (current) {
+        segments.push(current);
+        current = '';
+      }
+      // Find matching ]
+      const closeIndex = path.indexOf(']', i);
+      if (closeIndex === -1) {
+        throw new Error(`Unclosed bracket in path: ${path}`);
+      }
+      const index = path.slice(i + 1, closeIndex);
+      segments.push(index);
+      i = closeIndex + 1;
+    } else {
+      current += char;
+      i++;
+    }
+  }
+
+  if (current) {
+    segments.push(current);
+  }
+
+  return segments;
+}
+
+/**
+ * Gets a value from a nested object using dot-notation or bracket-notation path.
  *
  * @param obj - The object to search
- * @param path - The dot-notation path (e.g., "user.profile.name")
+ * @param path - The path (e.g., "user.profile.name" or "items[0].name")
  * @returns The value at the path, or undefined if not found
  *
  * @example
  * getNestedValue({ user: { name: 'John' } }, 'user.name')
  * // "John"
+ *
+ * getNestedValue({ items: [{ name: 'A' }] }, 'items[0].name')
+ * // "A"
  */
 export function getNestedValue(
   obj: Record<string, unknown>,
@@ -72,52 +132,104 @@ export function getNestedValue(
     return obj;
   }
 
-  const keys = path.split('.');
+  const segments = parsePath(path);
   let current: unknown = obj;
 
-  for (const key of keys) {
-    if (!isPlainObject(current) || !(key in current)) {
+  for (const segment of segments) {
+    // Check if current is null or undefined
+    if (current == null) {
       return undefined;
     }
-    current = current[key];
+
+    // Handle array access
+    if (Array.isArray(current)) {
+      const index = parseInt(segment, 10);
+      if (isNaN(index) || index < 0 || index >= current.length) {
+        return undefined;
+      }
+      current = current[index];
+    }
+    // Handle object access
+    else if (isPlainObject(current)) {
+      if (!(segment in current)) {
+        return undefined;
+      }
+      current = current[segment];
+    }
+    // Invalid path - current is neither array nor object
+    else {
+      return undefined;
+    }
   }
 
   return current;
 }
 
 /**
- * Sets a value in a nested object using dot-notation path.
- * Creates intermediate objects as needed.
+ * Sets a value in a nested object using dot-notation or bracket-notation path.
+ * Creates intermediate objects or arrays as needed.
  *
  * @param obj - The object to modify
- * @param path - The dot-notation path (e.g., "user.profile.name")
+ * @param path - The path (e.g., "user.profile.name" or "items[0].name")
  * @param value - The value to set
  *
  * @example
  * const obj = {};
  * setNestedValue(obj, 'user.name', 'John');
  * // obj is now { user: { name: "John" } }
+ *
+ * const obj2 = {};
+ * setNestedValue(obj2, 'items[0].name', 'A');
+ * // obj2 is now { items: [{ name: "A" }] }
  */
 export function setNestedValue(
   obj: Record<string, unknown>,
   path: string,
   value: unknown
 ): void {
-  const keys = path.split('.');
-  let current = obj;
+  const segments = parsePath(path);
+  let current: Record<string, unknown> | unknown[] = obj;
 
-  for (let i = 0; i < keys.length - 1; i++) {
-    const key = keys[i];
+  for (let i = 0; i < segments.length - 1; i++) {
+    const segment = segments[i];
+    const nextSegment = segments[i + 1];
+    const isNextIndex = /^\d+$/.test(nextSegment);
 
-    if (!isPlainObject(current[key])) {
-      current[key] = {};
+    if (Array.isArray(current)) {
+      const index = parseInt(segment, 10);
+
+      // Ensure array is large enough
+      while (current.length <= index) {
+        current.push(undefined);
+      }
+
+      // Create intermediate structure
+      if (current[index] == null) {
+        current[index] = isNextIndex ? [] : {};
+      }
+
+      current = current[index] as Record<string, unknown> | unknown[];
+    } else {
+      // Object access
+      if (current[segment] == null) {
+        current[segment] = isNextIndex ? [] : {};
+      }
+
+      current = current[segment] as Record<string, unknown> | unknown[];
     }
-
-    current = current[key] as Record<string, unknown>;
   }
 
-  const lastKey = keys[keys.length - 1];
-  current[lastKey] = value;
+  // Set the final value
+  const lastSegment = segments[segments.length - 1];
+  if (Array.isArray(current)) {
+    const index = parseInt(lastSegment, 10);
+    while (current.length <= index) {
+      current.push(undefined);
+    }
+    current[index] = value;
+  } else {
+    current[lastSegment] = value;
+  }
 }
 
 /**

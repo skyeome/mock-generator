@@ -58,6 +58,6 @@
     "AI_MAX_TOKENS": 1024,
     "AI_TEMPERATURE": 0.7,
     "AI_FALLBACK_ON_ERROR": true,
-    "AI_MODEL": "@cf/meta/llama-3.2-3b-instruct",
+    "AI_MODEL": "@cf/openai/gpt-oss-20b",
   },
 }
