@@ -1,5 +1,3 @@
-"use client";
-
 import Link from "next/link";
 import {
   Sparkles,
@@ -12,18 +10,9 @@ import {
   Globe,
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { SmoothScrollLink } from "@/components/ui/smooth-scroll-link";
 
 export default function LandingPage() {
-  const handleSmoothScroll = (
-    e: React.MouseEvent<HTMLAnchorElement>,
-    targetId: string,
-  ) => {
-    e.preventDefault();
-    const element = document.getElementById(targetId);
-    if (element) {
-      element.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -39,20 +28,18 @@ export default function LandingPage() {
             </div>
 
             <nav className="hidden md:flex items-center gap-6">
-              <a
+              <SmoothScrollLink
                 href="#tools"
-                onClick={(e) => handleSmoothScroll(e, "tools")}
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 Tools
-              </a>
-              <a
+              </SmoothScrollLink>
+              <SmoothScrollLink
                 href="#about"
-                onClick={(e) => handleSmoothScroll(e, "about")}
                 className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               >
                 About
-              </a>
+              </SmoothScrollLink>
               <ThemeToggle />
             </nav>
 
@@ -81,13 +68,12 @@ export default function LandingPage() {
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <a
+              <SmoothScrollLink
                 href="#tools"
-                onClick={(e) => handleSmoothScroll(e, "tools")}
                 className="inline-flex items-center justify-center px-8 py-3 rounded-lg bg-linear-to-r from-purple-600 to-blue-600 text-white font-medium hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
               >
                 Explore Tools
-              </a>
+              </SmoothScrollLink>
 
               <Link
                 href="/intl"

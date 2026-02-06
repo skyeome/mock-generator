@@ -17,6 +17,58 @@ interface TranslateResponse {
   translations?: Record<string, string>;
   error?: string;
   fallback?: boolean;
+  // New fields for partial success
+  partial?: boolean;
+  failedKeys?: string[];
+  stats?: {
+    totalChunks: number;
+    successfulChunks: number;
+  };
+}
+
+// Utility functions for chunking and timeout management
+function chunkArray<T>(array: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < array.length; i += size) {
+    chunks.push(array.slice(i, i + size));
+  }
+  return chunks;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(`Timeout after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
+const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Retry wrapper with exponential backoff
+async function retryWithBackoff<T>(
+  fn: () => Promise<T>,
+  maxAttempts: number = 3,
+  baseDelayMs: number = 1000,
+): Promise<T> {
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      console.warn(`Attempt ${attempt}/${maxAttempts} failed:`, lastError.message);
+
+      if (attempt < maxAttempts) {
+        const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
+        await delay(delayMs);
+      }
+    }
+  }
+
+  throw lastError;
 }
 
 const buildSystemPrompt = (
@@ -150,6 +202,104 @@ ${JSON.stringify(Object.fromEntries(entries.map((e) => [e.key, e.value])), null,
   return translations;
 }
 
+/**
+ * Chunked translation orchestrator for Cloudflare AI
+ */
+interface ChunkedTranslationResult {
+  translations: Record<string, string>;
+  failedKeys: string[];
+  totalChunks: number;
+  successfulChunks: number;
+}
+
+async function translateChunked(
+  sourceLocale: string,
+  targetLocale: string,
+  entries: Array<{ key: string; value: string }>,
+  ai: Ai,
+  tone?: "formal" | "casual",
+  context?: string,
+): Promise<ChunkedTranslationResult> {
+  const CHUNK_SIZE = 10;
+  const TIMEOUT_MS = 25000;
+  const chunks = chunkArray(entries, CHUNK_SIZE);
+
+  const allTranslations: Record<string, string> = {};
+  const failedKeys: string[] = [];
+  let successfulChunks = 0;
+
+  for (const chunk of chunks) {
+    try {
+      const chunkTranslations = await retryWithBackoff(
+        () => withTimeout(
+          translateWithCloudflare(sourceLocale, targetLocale, chunk, ai, tone, context),
+          TIMEOUT_MS
+        ),
+        3,
+        1000
+      );
+
+      Object.assign(allTranslations, chunkTranslations);
+      successfulChunks++;
+    } catch (error) {
+      console.error(`Chunk failed after retries:`, error);
+      failedKeys.push(...chunk.map(e => e.key));
+    }
+  }
+
+  return {
+    translations: allTranslations,
+    failedKeys,
+    totalChunks: chunks.length,
+    successfulChunks,
+  };
+}
+
+/**
+ * Chunked translation orchestrator for OpenAI
+ */
+async function translateChunkedOpenAI(
+  sourceLocale: string,
+  targetLocale: string,
+  entries: Array<{ key: string; value: string }>,
+  tone?: "formal" | "casual",
+  context?: string,
+): Promise<ChunkedTranslationResult> {
+  const CHUNK_SIZE = 10;
+  const TIMEOUT_MS = 25000;
+  const chunks = chunkArray(entries, CHUNK_SIZE);
+
+  const allTranslations: Record<string, string> = {};
+  const failedKeys: string[] = [];
+  let successfulChunks = 0;
+
+  for (const chunk of chunks) {
+    try {
+      const chunkTranslations = await retryWithBackoff(
+        () => withTimeout(
+          translateWithOpenAI(sourceLocale, targetLocale, chunk, tone, context),
+          TIMEOUT_MS
+        ),
+        3,
+        1000
+      );
+
+      Object.assign(allTranslations, chunkTranslations);
+      successfulChunks++;
+    } catch (error) {
+      console.error(`Chunk failed after retries:`, error);
+      failedKeys.push(...chunk.map(e => e.key));
+    }
+  }
+
+  return {
+    translations: allTranslations,
+    failedKeys,
+    totalChunks: chunks.length,
+    successfulChunks,
+  };
+}
+
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<TranslateResponse>> {
@@ -173,17 +323,34 @@ export async function POST(
       );
     }
 
-    let translations: Record<string, string>;
-
     if (isDev) {
-      // Development: Use LM Studio
-      translations = await translateWithOpenAI(
+      // Development: Use LM Studio with chunked processing
+      const result = await translateChunkedOpenAI(
         sourceLocale,
         targetLocale,
         entries,
         tone,
         context,
       );
+
+      if (result.successfulChunks === 0) {
+        // Complete failure
+        return NextResponse.json(
+          { success: false, error: "All translation chunks failed" },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        translations: result.translations,
+        partial: result.failedKeys.length > 0,
+        failedKeys: result.failedKeys.length > 0 ? result.failedKeys : undefined,
+        stats: {
+          totalChunks: result.totalChunks,
+          successfulChunks: result.successfulChunks,
+        },
+      });
     } else {
       // Production: Use Cloudflare AI
       let ai: Ai | undefined;
@@ -208,7 +375,7 @@ export async function POST(
         });
       }
 
-      translations = await translateWithCloudflare(
+      const result = await translateChunked(
         sourceLocale,
         targetLocale,
         entries,
@@ -216,12 +383,26 @@ export async function POST(
         tone,
         context,
       );
-    }
 
-    return NextResponse.json({
-      success: true,
-      translations,
-    });
+      if (result.successfulChunks === 0) {
+        // Complete failure
+        return NextResponse.json(
+          { success: false, error: "All translation chunks failed" },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        translations: result.translations,
+        partial: result.failedKeys.length > 0,
+        failedKeys: result.failedKeys.length > 0 ? result.failedKeys : undefined,
+        stats: {
+          totalChunks: result.totalChunks,
+          successfulChunks: result.successfulChunks,
+        },
+      });
+    }
   } catch (error) {
     console.error("Translation error:", error);
     return NextResponse.json(

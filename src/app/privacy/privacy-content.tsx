@@ -1,45 +1,19 @@
-'use client';
-
-import { useState } from 'react';
-import { ChevronUp } from 'lucide-react';
 import {
   PRIVACY_POLICY_SECTIONS,
   PRIVACY_POLICY_TOC,
   PRIVACY_POLICY_METADATA,
 } from '@/lib/consent/privacy-content';
+import PrivacyNavigation from '@/components/privacy/privacy-navigation';
+import BackToTop from '@/components/privacy/back-to-top';
 
 /**
  * Privacy Policy Content Component
- * Interactive client-side component for displaying GDPR-compliant privacy policy
+ * Server-rendered component for displaying GDPR-compliant privacy policy
  */
 
 export default function PrivacyContent() {
-  const [activeSection, setActiveSection] = useState<string>('introduction');
-  const [showBackToTop, setShowBackToTop] = useState(false);
-
-  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-    const target = e.currentTarget;
-    setShowBackToTop(target.scrollTop > 300);
-  };
-
-  const scrollToSection = (sectionId: string) => {
-    setActiveSection(sectionId);
-    const element = document.getElementById(sectionId);
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth' });
-    }
-  };
-
-  const scrollToTop = () => {
-    const main = document.querySelector('main');
-    if (main) {
-      main.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-  };
-
   return (
     <main
-      onScroll={handleScroll}
       className="min-h-screen bg-white text-gray-900"
       style={{ height: '100vh', overflowY: 'auto' }}
     >
@@ -58,39 +32,14 @@ export default function PrivacyContent() {
       </header>
 
       <div className="flex">
-        {/* Sidebar - Table of Contents */}
-        <aside className="sticky top-[200px] hidden w-64 flex-shrink-0 lg:block">
-          <div className="mx-6 rounded-lg border border-gray-200 bg-gray-50 p-6">
-            <h2 className="mb-4 text-sm font-semibold text-gray-900">
-              Table of Contents
-            </h2>
-            <nav className="space-y-2">
-              {PRIVACY_POLICY_TOC.map((item) => (
-                <button
-                  key={item.id}
-                  onClick={() => scrollToSection(item.id)}
-                  className={`block w-full rounded px-3 py-2 text-left text-sm transition-colors ${
-                    activeSection === item.id
-                      ? 'bg-blue-100 font-medium text-blue-900'
-                      : 'text-gray-700 hover:bg-gray-100'
-                  }`}
-                >
-                  {item.label}
-                </button>
-              ))}
-            </nav>
-          </div>
-        </aside>
+        {/* Sidebar - Table of Contents (Client Component) */}
+        <PrivacyNavigation />
 
-        {/* Main Content */}
+        {/* Main Content (Server-rendered) */}
         <article className="flex-1 px-6 py-12">
           <div className="mx-auto max-w-3xl">
             {/* Introduction Section - Special formatting */}
-            <section
-              id="introduction"
-              className="mb-12 scroll-mt-32"
-              onMouseEnter={() => setActiveSection('introduction')}
-            >
+            <section id="introduction" className="mb-12 scroll-mt-32">
               <div className="rounded-lg border-l-4 border-blue-500 bg-blue-50 p-6 mb-8">
                 <h2 className="mb-4 text-2xl font-bold text-gray-900">
                   {PRIVACY_POLICY_SECTIONS.introduction.title}
@@ -117,12 +66,7 @@ export default function PrivacyContent() {
               if (!section) return null;
 
               return (
-                <section
-                  key={toc.id}
-                  id={toc.id}
-                  className="mb-12 scroll-mt-32"
-                  onMouseEnter={() => setActiveSection(toc.id)}
-                >
+                <section key={toc.id} id={toc.id} className="mb-12 scroll-mt-32">
                   <h2 className="mb-4 text-2xl font-bold text-gray-900">
                     {section.title}
                   </h2>
@@ -292,16 +236,8 @@ export default function PrivacyContent() {
         </article>
       </div>
 
-      {/* Back to Top Button */}
-      {showBackToTop && (
-        <button
-          onClick={scrollToTop}
-          className="fixed bottom-8 right-8 flex items-center justify-center rounded-full bg-blue-600 p-3 text-white shadow-lg transition-all hover:bg-blue-700"
-          aria-label="Back to top"
-        >
-          <ChevronUp size={24} />
-        </button>
-      )}
+      {/* Back to Top Button (Client Component) */}
+      <BackToTop />
     </main>
   );
 }
