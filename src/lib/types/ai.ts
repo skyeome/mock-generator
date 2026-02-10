@@ -21,11 +21,25 @@ export interface AISchemaAnalysis {
 }
 
 /**
+ * Supported AI providers
+ */
+export type AIProvider = 'openai' | 'cloudflare' | 'gemini';
+
+/**
+ * Default models for each provider
+ */
+export const PROVIDER_MODELS: Record<AIProvider, string> = {
+  gemini: 'gemini-2.0-flash-exp',
+  openai: 'gpt-4o-mini',
+  cloudflare: '@cf/meta/llama-3.1-8b-instruct-fp8',
+};
+
+/**
  * Configuration for AI service
  */
 export interface AIConfig {
   enabled: boolean;
-  model: string;
+  provider: AIProvider;
   maxTokens: number;
   temperature: number;
   fallbackOnError: boolean;
@@ -36,7 +50,7 @@ export interface AIConfig {
  */
 export const DEFAULT_AI_CONFIG: AIConfig = {
   enabled: true,
-  model: "@cf/meta/llama-3.1-8b-instruct-fp8",
+  provider: 'gemini',
   maxTokens: 1024,
   temperature: 0.7,
   fallbackOnError: true,

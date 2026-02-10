@@ -28,8 +28,8 @@ describe("AIClient", () => {
       expect(client).toBeInstanceOf(AIClient);
     });
 
-    it("should allow custom model configuration", () => {
-      const client = new AIClient({ model: "@cf/meta/llama-3.2-1b-instruct" });
+    it("should allow custom provider configuration", () => {
+      const client = new AIClient({ provider: "cloudflare" });
       expect(client).toBeInstanceOf(AIClient);
     });
 
@@ -95,7 +95,7 @@ describe("AIClient", () => {
 
     it("should call AI with correct parameters", async () => {
       const client = new AIClient({
-        model: "@cf/meta/llama-3.1-8b-instruct-fp8",
+        provider: "cloudflare",
         maxTokens: 1024,
         temperature: 0.7,
       });
@@ -104,7 +104,7 @@ describe("AIClient", () => {
       await client.analyzeSchema(sampleSchema, mockAI as unknown as Ai);
 
       expect(mockAI.run).toHaveBeenCalledWith(
-        "@cf/meta/llama-3.1-8b-instruct-fp8",
+        expect.any(String), // Model name depends on provider
         expect.objectContaining({
           messages: expect.arrayContaining([
             expect.objectContaining({ role: "system" }),

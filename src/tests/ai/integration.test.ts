@@ -236,7 +236,7 @@ describe('AI Integration', () => {
 
       await enrichSchemaWithAI(schema, mockAI as unknown as Ai, {
         enabled: true,
-        model: '@cf/meta/llama-3.1-70b-instruct',
+        provider: 'cloudflare',
         maxTokens: 2048,
         temperature: 0.5
       });

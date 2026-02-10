@@ -76,51 +76,67 @@ export function useIntlSync() {
       for (let i = 0; i < entries.length; i += batchSize) {
         const batch = entries.slice(i, i + batchSize);
 
-        await Promise.all(
-          batch.map(async (entry) => {
-            try {
-              // Update status to translating
-              const currentState = useIntlSyncStore.getState();
-              const updatedEntries = currentState.translations.map(t =>
-                t.key === entry.key ? { ...t, status: 'translating' as const } : t
-              );
-              currentState.setTranslations(updatedEntries);
+        try {
+          // Update all batch entries to translating status
+          const currentState = useIntlSyncStore.getState();
+          const updatedEntries = currentState.translations.map(t =>
+            batch.some(b => b.key === t.key) ? { ...t, status: 'translating' as const } : t
+          );
+          currentState.setTranslations(updatedEntries);
 
-              // Mask variables before translation
-              const { maskedText, variables } = maskVariables(entry.original);
+          // Build batch entries with masking applied per-entry
+          const maskedEntries = batch.map(entry => {
+            const { maskedText } = maskVariables(entry.original);
+            return {
+              key: entry.key,
+              value: maskedText
+            };
+          });
 
-              // Call translation API
-              const response = await fetch('/api/intl/translate', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  text: maskedText,
-                  sourceLocale,
-                  targetLocale,
-                }),
-              });
+          // Store variables map for unmasking
+          const variablesMap = new Map(
+            batch.map(entry => {
+              const { variables } = maskVariables(entry.original);
+              return [entry.key, variables];
+            })
+          );
 
-              if (!response.ok) {
-                throw new Error('Translation API failed');
-              }
+          // Call translation API with batch format
+          const response = await fetch('/api/intl/translate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sourceLocale,
+              targetLocale,
+              entries: maskedEntries,
+            }),
+          });
 
-              const data = await response.json() as { translatedText: string };
+          if (!response.ok) {
+            throw new Error('Translation API failed');
+          }
 
-              // Unmask variables
-              const finalTranslation = unmaskVariables(data.translatedText, variables);
+          const data = await response.json();
 
-              // Update translation
-              useIntlSyncStore.getState().updateTranslation(entry.key, finalTranslation);
-            } catch (error) {
-              console.error(`Translation failed for ${entry.key}:`, error);
-              const currentState = useIntlSyncStore.getState();
-              const updatedEntries = currentState.translations.map(t =>
-                t.key === entry.key ? { ...t, status: 'error' as const } : t
-              );
-              currentState.setTranslations(updatedEntries);
-            }
-          })
-        );
+          if (!data.success || !data.translations) {
+            throw new Error(data.error || 'Translation failed');
+          }
+
+          // Apply translations with unmasking per-entry
+          for (const [key, translatedValue] of Object.entries(data.translations)) {
+            const variables = variablesMap.get(key) || [];
+            const finalTranslation = unmaskVariables(translatedValue as string, variables);
+            useIntlSyncStore.getState().updateTranslation(key, finalTranslation);
+          }
+        } catch (error) {
+          console.error('Batch translation failed:', error);
+          // Mark all batch entries as error
+          const currentState = useIntlSyncStore.getState();
+          const updatedEntries = currentState.translations.map(t =>
+            batch.some(b => b.key === t.key) ? { ...t, status: 'error' as const } : t
+          );
+          currentState.setTranslations(updatedEntries);
+        }
 
         // Update progress
         const progress = Math.min(((i + batchSize) / entries.length) * 100, 100);

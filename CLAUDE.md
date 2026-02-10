@@ -75,15 +75,26 @@ Three Zustand stores with localStorage persistence:
 
 ## Environment Variables
 
-AI provider is selected based on `NODE_ENV`:
-- **Development**: LM Studio at `localhost:1234` (OpenAI-compatible API)
-- **Production**: Cloudflare Workers AI
+AI provider is selected via `AI_PROVIDER` environment variable:
+- `gemini` (default): Google Gemini API (fastest)
+- `openai`: OpenAI-compatible API (LM Studio)
+- `cloudflare`: Cloudflare Workers AI
+
+Provider-specific model environment variables:
+- `GEMINI_MODEL` - Gemini model (default: gemini-2.5-flash)
+- `OPENAI_MODEL` - OpenAI model (default: gpt-4o-mini)
+- `CLOUDFLARE_MODEL` - Cloudflare model (default: @cf/meta/llama-3.1-8b-instruct-fp8)
 
 Create `.dev.vars`:
+
 ```bash
-AI_ENABLED=true
-OPENAI_BASE_URL=http://localhost:1234/v1
-OPENAI_MODEL=gpt-oss-20b
+AI_PROVIDER=gemini
+GOOGLE_API_KEY=your-google-api-key
+
+# Optional: OpenAI-compatible (for local LM Studio)
+# AI_PROVIDER=openai
+# OPENAI_BASE_URL=http://localhost:1234/v1
+# OPENAI_MODEL=gpt-oss-20b
 ```
 
 ## Path Alias

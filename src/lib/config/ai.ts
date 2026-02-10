@@ -5,14 +5,17 @@ import type { AIConfig } from "../types/ai";
  */
 export function getAIConfig(): AIConfig {
   const enabled = getEnvVar("AI_ENABLED", "true") === "true";
-  const model = getEnvVar("AI_MODEL", "@cf/openai/gpt-oss-20b");
+  const providerEnv = getEnvVar("AI_PROVIDER", "gemini");
+  const provider = (providerEnv === "openai" || providerEnv === "cloudflare" || providerEnv === "gemini")
+    ? providerEnv
+    : "gemini";
   const maxTokens = parseInt(getEnvVar("AI_MAX_TOKENS", "1024"), 10);
   const temperature = parseFloat(getEnvVar("AI_TEMPERATURE", "0.7"));
   const fallbackOnError = getEnvVar("AI_FALLBACK_ON_ERROR", "true") === "true";
 
   return {
     enabled,
-    model,
+    provider,
     maxTokens,
     temperature,
     fallbackOnError,

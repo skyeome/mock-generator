@@ -58,6 +58,7 @@
     "AI_MAX_TOKENS": 1024,
     "AI_TEMPERATURE": 0.7,
     "AI_FALLBACK_ON_ERROR": true,
-    "AI_MODEL": "@cf/openai/gpt-oss-20b",
+    "AI_PROVIDER": "gemini",
+    "GEMINI_MODEL": "gemini-2.5-flash",
   },
 }

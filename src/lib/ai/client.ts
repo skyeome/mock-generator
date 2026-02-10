@@ -1,9 +1,7 @@
 import type { AISchemaAnalysis, AIConfig } from '../types/ai';
-import { DEFAULT_AI_CONFIG } from '../types/ai';
+import { DEFAULT_AI_CONFIG, PROVIDER_MODELS } from '../types/ai';
 import type { JsonSchema } from '../types';
 import { SCHEMA_ANALYSIS_SYSTEM_PROMPT, buildSchemaPrompt } from './prompts';
-
-const isDev = typeof process !== 'undefined' && process.env?.NODE_ENV === 'development';
 
 /**
  * AI Service Client
@@ -23,10 +21,18 @@ export class AIClient {
     }
 
     try {
-      if (isDev) {
-        return await this.analyzeWithOpenAI(schema);
-      } else {
-        return await this.analyzeWithCloudflare(schema, ai);
+      const provider = process.env?.AI_PROVIDER || this.config.provider || 'gemini';
+
+      switch (provider) {
+        case 'gemini':
+          return await this.analyzeWithGemini(schema);
+        case 'openai':
+          return await this.analyzeWithOpenAI(schema);
+        case 'cloudflare':
+          return await this.analyzeWithCloudflare(schema, ai);
+        default:
+          console.warn(`Unknown provider: ${provider}, falling back to gemini`);
+          return await this.analyzeWithGemini(schema);
       }
     } catch (error) {
       console.error('AI analysis failed:', error);
@@ -78,7 +84,7 @@ export class AIClient {
       return null;
     }
 
-    const response = await ai.run(this.config.model as Parameters<Ai['run']>[0], {
+    const response = await ai.run(PROVIDER_MODELS.cloudflare as Parameters<Ai['run']>[0], {
       messages: [
         { role: 'system', content: SCHEMA_ANALYSIS_SYSTEM_PROMPT },
         { role: 'user', content: buildSchemaPrompt(schema as unknown as Record<string, unknown>) },
@@ -97,6 +103,45 @@ export class AIClient {
     }
 
     return this.parseResponse(content);
+  }
+
+  /**
+   * Google Gemini API (fastest option)
+   */
+  private async analyzeWithGemini(schema: JsonSchema): Promise<AISchemaAnalysis | null> {
+    const apiKey = process.env?.GOOGLE_API_KEY;
+    if (!apiKey) {
+      console.error('GOOGLE_API_KEY not configured');
+      return null;
+    }
+
+    const { PROVIDER_MODELS } = await import('../types/ai');
+    const model = process.env?.GEMINI_MODEL || PROVIDER_MODELS.gemini;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `${SCHEMA_ANALYSIS_SYSTEM_PROMPT}\n\n${buildSchemaPrompt(schema as unknown as Record<string, unknown>)}`
+          }]
+        }],
+        generationConfig: {
+          maxOutputTokens: this.config.maxTokens,
+          temperature: this.config.temperature,
+        }
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    const data = await response.json() as { candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
+    const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    return content ? this.parseResponse(content) : null;
   }
 
   private parseResponse(content: string): AISchemaAnalysis | null {

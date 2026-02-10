@@ -117,10 +117,70 @@ describe('use-intl-sync', () => {
   });
 
   describe('translateSelected', () => {
+    it('should call API with batch entries format, not single text field', async () => {
+      // Mock fetch to capture the request
+      const fetchSpy = vi.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({
+          success: true,
+          translations: {
+            greeting: '안녕하세요',
+            farewell: '안녕히 가세요',
+          },
+        }),
+      });
+      global.fetch = fetchSpy;
+
+      const { result } = renderHook(() => useIntlSync());
+
+      // Setup diffResult with MISSING operations
+      const diffResult: DiffResult = {
+        operations: [
+          { type: 'MISSING', keyPath: 'greeting', sourceValue: 'Hello', targetValue: undefined },
+          { type: 'MISSING', keyPath: 'farewell', sourceValue: 'Goodbye', targetValue: undefined },
+        ],
+        stats: { missing: 2, orphaned: 0, typeMismatch: 0, equal: 0 },
+        sourceKeyOrder: ['greeting', 'farewell'],
+        targetKeyOrder: [],
+      };
+
+      act(() => {
+        result.current.setSourceJson('{"greeting":"Hello","farewell":"Goodbye"}');
+        result.current.setTargetJson('{}');
+        result.current.setDiffResult(diffResult);
+        result.current.setSelectedKeys(['greeting', 'farewell']);
+      });
+
+      await act(async () => {
+        await result.current.translateSelected();
+      });
+
+      // Verify API was called
+      expect(fetchSpy).toHaveBeenCalled();
+
+      // Get the first API call
+      const firstCall = fetchSpy.mock.calls[0];
+      const requestBody = JSON.parse(firstCall[1]?.body as string);
+
+      // CRITICAL: API must receive 'entries' array, NOT 'text' field
+      // This test SHOULD FAIL because current implementation sends 'text' field
+      expect(requestBody).toHaveProperty('entries');
+      expect(requestBody).not.toHaveProperty('text');
+      expect(requestBody.entries).toBeInstanceOf(Array);
+      expect(requestBody.entries.length).toBeGreaterThan(0);
+      expect(requestBody.entries[0]).toHaveProperty('key');
+      expect(requestBody.entries[0]).toHaveProperty('value');
+    });
+
     it('should update translations for selected keys', async () => {
       const mockFetch = vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ translatedText: '새로운 키' }),
+        json: async () => ({
+          success: true,
+          translations: {
+            'new.key': '새로운 키',
+          },
+        }),
       });
       global.fetch = mockFetch;
 
@@ -210,9 +270,18 @@ describe('use-intl-sync', () => {
     });
 
     it('should process translations in batches', async () => {
-      const mockFetch = vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ translatedText: 'translated' }),
+      const mockFetch = vi.fn().mockImplementation(async (url, options) => {
+        const body = JSON.parse(options.body);
+        const translations = Object.fromEntries(
+          body.entries.map((entry: { key: string; value: string }) => [entry.key, `translated-${entry.value}`])
+        );
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            translations,
+          }),
+        };
       });
       global.fetch = mockFetch;
 
@@ -247,7 +316,8 @@ describe('use-intl-sync', () => {
       });
 
       expect(result.current.translations).toHaveLength(12);
-      expect(mockFetch).toHaveBeenCalledTimes(12);
+      // With batch size of 5, we expect 3 API calls (5 + 5 + 2)
+      expect(mockFetch).toHaveBeenCalledTimes(3);
     });
   });
 
@@ -440,15 +510,22 @@ describe('use-intl-sync', () => {
 
       const mockFetch = vi.fn().mockImplementation(async (url, options) => {
         const body = JSON.parse(options.body);
-        // Return translated version of input
-        return {
-          ok: true,
-          json: async () => ({
-            translatedText: body.text
+        // Return translated version for batch entries
+        const translations = Object.fromEntries(
+          body.entries.map((entry: { key: string; value: string }) => {
+            const translated = entry.value
               .replace('AWS Certified', 'AWS 인증')
               .replace('Cloud cert', '클라우드 자격증')
               .replace('GCP Associate', 'GCP 어소시에이트')
-              .replace('Google cert', '구글 자격증')
+              .replace('Google cert', '구글 자격증');
+            return [entry.key, translated];
+          })
+        );
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            translations,
           }),
         };
       });

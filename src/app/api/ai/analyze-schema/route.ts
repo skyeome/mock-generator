@@ -37,11 +37,11 @@ export async function POST(request: NextRequest) {
 
     const client = new AIClient(mergedConfig);
 
-    // Get AI binding from Cloudflare context (production only)
+    // Get AI binding from Cloudflare context (only when using cloudflare provider)
     let aiBinding: Ai | undefined;
-    const isDev = process.env.NODE_ENV === 'development';
+    const provider = process.env.AI_PROVIDER || mergedConfig.provider || 'gemini';
 
-    if (!isDev) {
+    if (provider === 'cloudflare') {
       try {
         const ctx = await getCloudflareContext();
         aiBinding = ctx.env.AI;
@@ -84,16 +84,13 @@ export async function POST(request: NextRequest) {
  * Returns API info and status
  */
 export async function GET() {
-  const isDev = process.env.NODE_ENV === 'development';
+  const provider = process.env.AI_PROVIDER || 'gemini';
 
   return NextResponse.json({
     endpoint: '/api/ai/analyze-schema',
     method: 'POST',
     status: 'active',
-    provider: isDev ? 'OpenAI-compatible (LM Studio)' : 'Cloudflare Workers AI',
-    body: {
-      schema: 'JsonSchema (required)',
-      config: 'AIConfig (optional)'
-    }
+    provider: provider,
+    availableProviders: ['gemini', 'openai', 'cloudflare'],
   });
 }
