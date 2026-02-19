@@ -75,6 +75,7 @@ export function useIntlSync() {
           const flattened = flattenToEntries(
             sourceValue as Record<string, unknown>,
             key,
+            { skipNonTranslatable: true }
           );
           for (const flatEntry of flattened) {
             entries.push({
@@ -225,11 +226,15 @@ export function useIntlSync() {
 
       if (hasArrayNotation) {
         // Complex structure with arrays - use reconstructFromEntries
-        // Get original structure from sourceParsed
-        const originalStructure = getNestedValue(
-          sourceParsed,
+        // Use target as base if it exists (preserves existing target translations)
+        // Fall back to source if target doesn't have the structure (MISSING case)
+        const targetBase = getNestedValue(
+          targetParsed as Record<string, unknown>,
           basePath,
-        ) as Record<string, unknown>;
+        );
+        const originalStructure = (targetBase !== undefined
+          ? targetBase
+          : getNestedValue(sourceParsed, basePath)) as Record<string, unknown>;
 
         // Convert TranslationEntry[] to the format expected by reconstructFromEntries
         // Remove basePath prefix to get relative path for reconstruction

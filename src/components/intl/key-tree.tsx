@@ -1,12 +1,21 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { ChevronRight, ChevronDown, AlertTriangle, XCircle, RefreshCw, ArrowLeftRight, CheckCircle2 } from 'lucide-react';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { clsx } from 'clsx';
+import { useMemo, useState } from "react";
+import {
+  ChevronRight,
+  ChevronDown,
+  AlertTriangle,
+  XCircle,
+  RefreshCw,
+  ArrowLeftRight,
+  CheckCircle2,
+} from "lucide-react";
+import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
+import { ScrollBar } from "@/components/ui/scroll-area";
+import { clsx } from "clsx";
 
 interface DiffOperation {
-  type: 'MISSING' | 'ORPHANED' | 'TYPE_MISMATCH' | 'VALUE_DIFF' | 'EQUAL';
+  type: "MISSING" | "ORPHANED" | "TYPE_MISMATCH" | "VALUE_DIFF" | "EQUAL";
   keyPath: string;
   sourceValue: unknown;
   targetValue: unknown;
@@ -14,7 +23,7 @@ interface DiffOperation {
 
 interface ValidationResult {
   keyPath: string;
-  severity: 'error' | 'warning';
+  severity: "error" | "warning";
   message: string;
 }
 
@@ -34,12 +43,39 @@ interface TreeNode {
   isLeaf: boolean;
 }
 
+/**
+ * Splits a keyPath into tree segments, handling both dot and bracket notation.
+ * "ol[0].text" -> ["ol", "[0]", "text"]
+ * "user.name" -> ["user", "name"]
+ */
+function splitKeyPath(keyPath: string): string[] {
+  const parts: string[] = [];
+  let current = "";
+  for (let i = 0; i < keyPath.length; i++) {
+    const char = keyPath[i];
+    if (char === ".") {
+      if (current) parts.push(current);
+      current = "";
+    } else if (char === "[") {
+      if (current) parts.push(current);
+      const close = keyPath.indexOf("]", i);
+      parts.push(keyPath.slice(i, close + 1)); // e.g., "[0]"
+      current = "";
+      i = close;
+    } else {
+      current += char;
+    }
+  }
+  if (current) parts.push(current);
+  return parts;
+}
+
 const typeColors = {
-  MISSING: 'text-destructive',
-  ORPHANED: 'text-yellow-500',
-  TYPE_MISMATCH: 'text-muted-foreground',
-  VALUE_DIFF: 'text-muted-foreground',
-  EQUAL: 'text-green-500',
+  MISSING: "text-destructive",
+  ORPHANED: "text-yellow-500",
+  TYPE_MISMATCH: "text-muted-foreground",
+  VALUE_DIFF: "text-muted-foreground",
+  EQUAL: "text-green-500",
 };
 
 const typeIcons = {
@@ -64,12 +100,18 @@ export function KeyTree({
     const root = new Map<string, TreeNode>();
 
     operations.forEach((operation) => {
-      const parts = operation.keyPath.split('.');
+      const parts = splitKeyPath(operation.keyPath);
       let currentLevel = root;
 
       parts.forEach((part, index) => {
         const isLastPart = index === parts.length - 1;
-        const fullPath = parts.slice(0, index + 1).join('.');
+        const fullPath = parts
+          .slice(0, index + 1)
+          .reduce(
+            (acc, p) =>
+              acc === "" ? p : p.startsWith("[") ? acc + p : acc + "." + p,
+            "",
+          );
 
         if (!currentLevel.has(part)) {
           currentLevel.set(part, {
@@ -120,15 +162,15 @@ export function KeyTree({
     // Get operation type for styling
     const operation = node.operation;
     const TypeIcon = operation ? typeIcons[operation.type] : null;
-    const typeColor = operation ? typeColors[operation.type] : '';
+    const typeColor = operation ? typeColors[operation.type] : "";
 
     return (
       <div key={node.fullPath} className="select-none">
         <div
           className={clsx(
-            'flex items-center gap-2 py-1 px-2 rounded cursor-pointer transition-colors',
-            isSelected && 'bg-primary/10 border border-primary/50',
-            !isSelected && 'hover:bg-muted'
+            "flex items-center gap-2 py-1 px-2 rounded cursor-pointer transition-colors",
+            isSelected && "bg-primary/10 border border-primary/50",
+            !isSelected && "hover:bg-muted",
           )}
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
         >
@@ -137,7 +179,7 @@ export function KeyTree({
             <button
               onClick={() => toggleExpand(node.fullPath)}
               className="p-0 hover:bg-accent rounded transition-colors"
-              aria-label={isExpanded ? 'Collapse' : 'Expand'}
+              aria-label={isExpanded ? "Collapse" : "Expand"}
             >
               {isExpanded ? (
                 <ChevronDown className="w-4 h-4 text-muted-foreground" />
@@ -167,7 +209,7 @@ export function KeyTree({
             {/* Operation Type Icon */}
             {TypeIcon && (
               <TypeIcon
-                className={clsx('w-4 h-4 flex-shrink-0', typeColor)}
+                className={clsx("w-4 h-4 shrink-0", typeColor)}
                 data-testid={`operation-icon-${operation?.type.toLowerCase()}`}
               />
             )}
@@ -175,9 +217,9 @@ export function KeyTree({
             {/* Node Text */}
             <span
               className={clsx(
-                'text-sm font-mono truncate',
-                node.isLeaf ? 'font-medium' : 'font-semibold',
-                !hasChildren && 'ml-5' // Indent leaf nodes without expand button
+                "text-sm font-mono truncate",
+                node.isLeaf ? "font-medium" : "font-semibold",
+                !hasChildren && "ml-5", // Indent leaf nodes without expand button
               )}
             >
               {node.name}
@@ -185,8 +227,8 @@ export function KeyTree({
 
             {/* Validation Icon */}
             {validation && (
-              <div className="flex-shrink-0" title={validation.message}>
-                {validation.severity === 'error' ? (
+              <div className="shrink-0" title={validation.message}>
+                {validation.severity === "error" ? (
                   <XCircle
                     className="w-4 h-4 text-destructive"
                     data-testid="validation-icon-error"
@@ -206,7 +248,7 @@ export function KeyTree({
         {hasChildren && isExpanded && (
           <div>
             {Array.from(node.children.values()).map((child) =>
-              renderNode(child, depth + 1)
+              renderNode(child, depth + 1),
             )}
           </div>
         )}
@@ -230,10 +272,15 @@ export function KeyTree({
   }, [tree]);
 
   return (
-    <ScrollArea className="h-full">
-      <div className="p-2">
-        {Array.from(tree.values()).map((node) => renderNode(node, 0))}
-      </div>
-    </ScrollArea>
+    <ScrollAreaPrimitive.Root className="relative h-full overflow-hidden">
+      <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit]">
+        <div className="p-2 min-w-max">
+          {Array.from(tree.values()).map((node) => renderNode(node, 0))}
+        </div>
+      </ScrollAreaPrimitive.Viewport>
+      <ScrollBar orientation="vertical" />
+      <ScrollBar orientation="horizontal" />
+      <ScrollAreaPrimitive.Corner />
+    </ScrollAreaPrimitive.Root>
   );
 }

@@ -40,7 +40,7 @@
    * Smart Placement
    * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
    */
-  // "placement": {  "mode": "smart" }
+  "placement": { "mode": "smart" },
   /**
    * Bindings
    * Bindings allow your Worker to interact with resources on the Cloudflare Developer Platform, including
@@ -59,6 +59,6 @@
     "AI_TEMPERATURE": 0.7,
     "AI_FALLBACK_ON_ERROR": true,
     "AI_PROVIDER": "gemini",
-    "GEMINI_MODEL": "gemini-2.5-flash",
+    "GEMINI_MODEL": "gemini-3-flash",
   },
 }

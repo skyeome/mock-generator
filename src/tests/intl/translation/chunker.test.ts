@@ -363,6 +363,61 @@ describe('translation/chunker', () => {
     });
   });
 
+  describe('flattenToEntries - skipNonTranslatable option', () => {
+    it('should skip id fields when skipNonTranslatable is true', () => {
+      const obj = { id: '1', text: 'Hello World' };
+      const result = flattenToEntries(obj, 'ol[0]', { skipNonTranslatable: true });
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({ key: 'ol[0].text', value: 'Hello World' });
+      expect(result.find(e => e.key === 'ol[0].id')).toBeUndefined();
+    });
+
+    it('should skip numeric-only string values when skipNonTranslatable is true', () => {
+      const obj = { count: '42', label: 'Items' };
+      const result = flattenToEntries(obj, 'section', { skipNonTranslatable: true });
+      expect(result).toHaveLength(1);
+      expect(result[0]).toEqual({ key: 'section.label', value: 'Items' });
+    });
+
+    it('should include all fields when skipNonTranslatable is false (backward compat)', () => {
+      const obj = { id: '1', text: 'Hello' };
+      const result = flattenToEntries(obj, 'ol[0]');
+      expect(result).toHaveLength(2);
+    });
+
+    it('should skip known non-translatable keys: key, code, type, slug, href, src, url, icon', () => {
+      const obj = { key: 'btn-save', code: 'SAVE', type: 'button', slug: 'save-btn', label: 'Save' };
+      const result = flattenToEntries(obj, 'item', { skipNonTranslatable: true });
+      expect(result).toHaveLength(1);
+      expect(result[0].key).toBe('item.label');
+    });
+  });
+
+  describe('semanticChunk - non-translatable filter', () => {
+    it('should filter id fields from array objects', () => {
+      const data = {
+        ol: [
+          { id: '1', text: 'First item' },
+          { id: '2', text: 'Second item' },
+        ],
+      };
+      const chunks = semanticChunk(data);
+      const allEntries = chunks.flat();
+      expect(allEntries.find(e => e.key === 'ol[0].id')).toBeUndefined();
+      expect(allEntries.find(e => e.key === 'ol[1].id')).toBeUndefined();
+      expect(allEntries.find(e => e.key === 'ol[0].text')).toBeDefined();
+      expect(allEntries.find(e => e.key === 'ol[1].text')).toBeDefined();
+    });
+
+    it('should preserve non-array behavior (backward compat)', () => {
+      const data = { title: 'Hello', description: 'World' };
+      const chunks = semanticChunk(data);
+      const allEntries = chunks.flat();
+      expect(allEntries.find(e => e.key === 'title')).toBeDefined();
+      expect(allEntries.find(e => e.key === 'description')).toBeDefined();
+    });
+  });
+
   describe('semanticChunk with arrays', () => {
     it('should chunk top-level arrays', () => {
       const data = {

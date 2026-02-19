@@ -247,7 +247,8 @@ ${JSON.stringify(Object.fromEntries(entries.map((e) => [e.key, e.value])), null,
   });
 
   if (!response.ok) {
-    throw new Error(`Gemini API error: ${response.status}`);
+    const errorBody = await response.text().catch(() => "");
+    throw new Error(`Gemini API error: ${response.status} - ${errorBody}`);
   }
 
   const data = await response.json() as {
@@ -481,6 +482,32 @@ export async function POST(
       );
 
       if (result.successfulChunks === 0) {
+        // Gemini 완전 실패 시 Cloudflare AI로 폴백
+        console.warn('Gemini translation failed (likely location restriction), falling back to Cloudflare AI');
+        let ai: Ai | undefined;
+        try {
+          const ctx = await getCloudflareContext();
+          ai = ctx.env?.AI;
+        } catch {
+          // AI binding not available
+        }
+
+        if (ai) {
+          const cfResult = await translateChunked(sourceLocale, targetLocale, entries, ai, tone, context);
+          if (cfResult.successfulChunks > 0) {
+            return NextResponse.json({
+              success: true,
+              translations: cfResult.translations,
+              partial: cfResult.failedKeys.length > 0,
+              failedKeys: cfResult.failedKeys.length > 0 ? cfResult.failedKeys : undefined,
+              stats: {
+                totalChunks: cfResult.totalChunks,
+                successfulChunks: cfResult.successfulChunks,
+              },
+            });
+          }
+        }
+
         return NextResponse.json(
           { success: false, error: "All translation chunks failed" },
           { status: 500 },

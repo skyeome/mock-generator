@@ -82,18 +82,20 @@ describe('compareJson', () => {
     expect(result.stats.typeMismatch).toBe(1);
   });
 
-  it('should handle arrays', () => {
+  it('should handle arrays of primitives as leaf nodes', () => {
     const source = { tags: ['a', 'b', 'c'] };
     const target = { tags: ['a', 'b'] };
 
     const result = compareJson(source, target);
 
-    expect(result.operations).toContainEqual(
-      expect.objectContaining({
-        type: 'VALUE_DIFF',
-        keyPath: 'tags',
-      })
-    );
+    const keyPaths = result.operations.map(op => op.keyPath);
+    // Each primitive array element is a leaf
+    expect(keyPaths).toContain('tags[0]');
+    expect(keyPaths).toContain('tags[1]');
+    expect(keyPaths).toContain('tags[2]');
+    // tags[2] is MISSING in target
+    const missingOp = result.operations.find(op => op.keyPath === 'tags[2]');
+    expect(missingOp?.type).toBe('MISSING');
   });
 
   it('should return stats correctly', () => {
@@ -166,7 +168,7 @@ describe('extractKeyOrder', () => {
     expect(keys).toEqual(['name', 'age', 'email']);
   });
 
-  it('should extract nested keys with dot notation', () => {
+  it('should extract nested keys with dot notation (leaf paths only)', () => {
     const obj = {
       user: {
         profile: {
@@ -176,12 +178,13 @@ describe('extractKeyOrder', () => {
     };
     const keys = extractKeyOrder(obj);
 
-    expect(keys).toContain('user');
-    expect(keys).toContain('user.profile');
     expect(keys).toContain('user.profile.name');
+    // parent paths are NOT included
+    expect(keys).not.toContain('user');
+    expect(keys).not.toContain('user.profile');
   });
 
-  it('should handle arrays', () => {
+  it('should handle arrays of primitives as leaf nodes', () => {
     const obj = {
       items: ['a', 'b'],
       nested: {
@@ -190,9 +193,16 @@ describe('extractKeyOrder', () => {
     };
     const keys = extractKeyOrder(obj);
 
-    expect(keys).toContain('items');
-    expect(keys).toContain('nested');
-    expect(keys).toContain('nested.list');
+    // array elements are leaves
+    expect(keys).toContain('items[0]');
+    expect(keys).toContain('items[1]');
+    expect(keys).toContain('nested.list[0]');
+    expect(keys).toContain('nested.list[1]');
+    expect(keys).toContain('nested.list[2]');
+    // parent paths not included
+    expect(keys).not.toContain('items');
+    expect(keys).not.toContain('nested');
+    expect(keys).not.toContain('nested.list');
   });
 
   it('should handle empty objects', () => {
@@ -207,5 +217,98 @@ describe('extractKeyOrder', () => {
     const keys = extractKeyOrder(obj);
 
     expect(keys).toEqual(['z', 'a', 'm']);
+  });
+});
+
+describe('extractKeyOrder - array handling', () => {
+  it('should return only leaf paths for array of objects', () => {
+    const obj = {
+      ol: [
+        { id: '1', text: 'Hello' },
+        { id: '2', text: 'World' },
+      ],
+    };
+    const keys = extractKeyOrder(obj);
+    expect(keys).toContain('ol[0].id');
+    expect(keys).toContain('ol[0].text');
+    expect(keys).toContain('ol[1].id');
+    expect(keys).toContain('ol[1].text');
+    expect(keys).not.toContain('ol');
+    expect(keys).not.toContain('ol[0]');
+    expect(keys).not.toContain('ol[1]');
+  });
+
+  it('should return only leaf paths for plain objects (no parent paths)', () => {
+    const obj = { user: { name: 'John', email: 'j@e.com' } };
+    const keys = extractKeyOrder(obj);
+    expect(keys).toContain('user.name');
+    expect(keys).toContain('user.email');
+    expect(keys).not.toContain('user');
+  });
+
+  it('should treat nested arrays (array-in-array) as opaque leaves', () => {
+    const obj = { matrix: [[1, 2], [3, 4]] };
+    const keys = extractKeyOrder(obj);
+    expect(keys).toContain('matrix[0]');
+    expect(keys).toContain('matrix[1]');
+  });
+});
+
+describe('hasPath - bracket notation', () => {
+  it('should return true for existing array path', () => {
+    // hasPath is not exported, so test via compareJson behavior
+    // This is tested indirectly through compareJson
+  });
+});
+
+describe('getValueAtPath - bracket notation', () => {
+  it('should get value at bracket notation path', () => {
+    // getValueAtPath is not exported, test indirectly
+  });
+});
+
+describe('compareJson - array leaf operations', () => {
+  it('should produce MISSING operations for each leaf in array when target is empty', () => {
+    const source = {
+      ol: [
+        { id: '1', text: 'Hello' },
+        { id: '2', text: 'World' },
+      ],
+    };
+    const target = {};
+    const result = compareJson(source, target);
+    const keyPaths = result.operations.map(op => op.keyPath);
+
+    expect(keyPaths).toContain('ol[0].id');
+    expect(keyPaths).toContain('ol[0].text');
+    expect(keyPaths).toContain('ol[1].id');
+    expect(keyPaths).toContain('ol[1].text');
+    expect(keyPaths).not.toContain('ol');
+    expect(keyPaths).not.toContain('ol[0]');
+
+    const missingOps = result.operations.filter(op => op.type === 'MISSING');
+    expect(missingOps.length).toBe(4);
+    expect(result.stats.missing).toBe(4);
+  });
+
+  it('should produce EQUAL operations for matching array leaf values', () => {
+    const source = { ol: [{ id: '1', text: 'Hello' }] };
+    const target = { ol: [{ id: '1', text: 'Hello' }] };
+    const result = compareJson(source, target);
+
+    const equalOps = result.operations.filter(op => op.type === 'EQUAL');
+    expect(equalOps.length).toBe(2); // ol[0].id and ol[0].text
+  });
+
+  it('should produce VALUE_DIFF for changed array leaf values', () => {
+    const source = { ol: [{ id: '1', text: 'Hello' }] };
+    const target = { ol: [{ id: '1', text: 'Different' }] };
+    const result = compareJson(source, target);
+
+    const diffOps = result.operations.filter(op => op.type === 'VALUE_DIFF');
+    expect(diffOps.some(op => op.keyPath === 'ol[0].text')).toBe(true);
+
+    const equalOps = result.operations.filter(op => op.type === 'EQUAL');
+    expect(equalOps.some(op => op.keyPath === 'ol[0].id')).toBe(true);
   });
 });

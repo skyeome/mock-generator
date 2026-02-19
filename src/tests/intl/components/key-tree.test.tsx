@@ -257,3 +257,67 @@ describe('KeyTree', () => {
     expect(valueDiffKeys.length).toBeGreaterThan(0);
   });
 });
+
+describe('KeyTree - bracket notation path support', () => {
+  it('should render array paths as nested tree nodes', () => {
+    const operations: DiffOperation[] = [
+      {
+        keyPath: 'ol[0].text',
+        type: 'MISSING',
+        sourceValue: 'Hello',
+        targetValue: undefined,
+      },
+      {
+        keyPath: 'ol[1].text',
+        type: 'MISSING',
+        sourceValue: 'World',
+        targetValue: undefined,
+      },
+    ];
+
+    render(<KeyTree operations={operations} selectedKeys={[]} onSelectKey={vi.fn()} onToggleKey={vi.fn()} />);
+
+    // "ol" parent node should be present
+    expect(screen.getByText('ol')).toBeInTheDocument();
+    // "[0]" and "[1]" intermediate nodes
+    expect(screen.getByText('[0]')).toBeInTheDocument();
+    expect(screen.getByText('[1]')).toBeInTheDocument();
+    // leaf "text" nodes
+    expect(screen.getAllByText('text')).toHaveLength(2);
+  });
+
+  it('should not add a dot before bracket notation segments', () => {
+    const operations: DiffOperation[] = [
+      {
+        keyPath: 'ol[0].text',
+        type: 'MISSING',
+        sourceValue: 'Hello',
+        targetValue: undefined,
+      },
+    ];
+
+    const onSelectKey = vi.fn();
+    render(<KeyTree operations={operations} selectedKeys={[]} onSelectKey={onSelectKey} onToggleKey={vi.fn()} />);
+
+    // Click the leaf text node to verify the keyPath is correct (no "ol.[0].text")
+    const leafTextEl = screen.getByText('text');
+    fireEvent.click(leafTextEl);
+    expect(onSelectKey).toHaveBeenCalledWith('ol[0].text');
+  });
+
+  it('should keep non-array paths working the same way', () => {
+    const operations: DiffOperation[] = [
+      {
+        keyPath: 'user.name',
+        type: 'EQUAL',
+        sourceValue: 'John',
+        targetValue: 'John',
+      },
+    ];
+
+    render(<KeyTree operations={operations} selectedKeys={[]} onSelectKey={vi.fn()} onToggleKey={vi.fn()} />);
+
+    expect(screen.getByText('user')).toBeInTheDocument();
+    expect(screen.getByText('name')).toBeInTheDocument();
+  });
+});

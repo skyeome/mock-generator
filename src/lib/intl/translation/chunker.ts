@@ -9,12 +9,27 @@ export interface ChunkOptions {
   maxKeysPerChunk?: number;
 }
 
+const NON_TRANSLATABLE_KEYS = new Set(['id', 'key', 'code', 'type', 'slug', 'href', 'src', 'url', 'icon']);
+
+function isNonTranslatable(fieldName: string, value: string): boolean {
+  // Extract the last segment of the field name (e.g., "ol[0].id" -> "id")
+  const lastDot = fieldName.lastIndexOf('.');
+  const lastBracket = fieldName.lastIndexOf(']');
+  const lastSep = Math.max(lastDot, lastBracket);
+  const leaf = lastSep === -1 ? fieldName : fieldName.substring(lastSep + 1);
+
+  if (NON_TRANSLATABLE_KEYS.has(leaf.toLowerCase())) return true;
+  if (/^\d+$/.test(value)) return true;
+  return false;
+}
+
 /**
  * Flatten nested object to array of {key, value} entries with dot notation
  */
 export function flattenToEntries(
   obj: Record<string, unknown>,
-  prefix = ''
+  prefix = '',
+  options?: { skipNonTranslatable?: boolean }
 ): TranslationEntry[] {
   const entries: TranslationEntry[] = [];
 
@@ -22,6 +37,9 @@ export function flattenToEntries(
     const fullKey = prefix ? `${prefix}.${key}` : key;
 
     if (typeof value === 'string') {
+      if (options?.skipNonTranslatable && isNonTranslatable(fullKey, value)) {
+        continue;
+      }
       entries.push({ key: fullKey, value });
     } else if (Array.isArray(value)) {
       // Handle arrays with bracket notation
@@ -32,10 +50,10 @@ export function flattenToEntries(
           entries.push({ key: arrayKey, value: item });
         } else if (item && typeof item === 'object' && !Array.isArray(item)) {
           // Nested object in array
-          entries.push(...flattenToEntries(item as Record<string, unknown>, arrayKey));
+          entries.push(...flattenToEntries(item as Record<string, unknown>, arrayKey, options));
         } else if (Array.isArray(item)) {
           // Nested array
-          entries.push(...flattenToEntries({ '': item } as Record<string, unknown>, fullKey).map(e => ({
+          entries.push(...flattenToEntries({ '': item } as Record<string, unknown>, fullKey, options).map(e => ({
             ...e,
             key: e.key.replace(/^\./, `[${index}]`)
           })));
@@ -43,7 +61,7 @@ export function flattenToEntries(
         // Skip non-string, non-object array elements (numbers, booleans, null)
       });
     } else if (value && typeof value === 'object') {
-      entries.push(...flattenToEntries(value as Record<string, unknown>, fullKey));
+      entries.push(...flattenToEntries(value as Record<string, unknown>, fullKey, options));
     }
     // Skip non-string, non-object values (numbers, booleans, null, undefined)
   }
@@ -111,19 +129,21 @@ export function semanticChunk(
       value.forEach((item, index) => {
         const arrayKey = `${topKey}[${index}]`;
         if (typeof item === 'string') {
-          entries.push({ key: arrayKey, value: item });
+          if (!isNonTranslatable(arrayKey, item)) {
+            entries.push({ key: arrayKey, value: item });
+          }
         } else if (item && typeof item === 'object' && !Array.isArray(item)) {
-          entries.push(...flattenToEntries(item as Record<string, unknown>, arrayKey));
+          entries.push(...flattenToEntries(item as Record<string, unknown>, arrayKey, { skipNonTranslatable: true }));
         } else if (Array.isArray(item)) {
           // Recursively handle nested arrays
-          entries.push(...flattenToEntries({ '': item } as Record<string, unknown>, topKey).map(e => ({
+          entries.push(...flattenToEntries({ '': item } as Record<string, unknown>, topKey, { skipNonTranslatable: true }).map(e => ({
             ...e,
             key: e.key.replace(/^\./, `[${index}]`)
           })));
         }
       });
     } else if (value && typeof value === 'object') {
-      entries = flattenToEntries(value as Record<string, unknown>, topKey);
+      entries = flattenToEntries(value as Record<string, unknown>, topKey, { skipNonTranslatable: true });
     } else {
       // Skip non-string, non-object values
       continue;

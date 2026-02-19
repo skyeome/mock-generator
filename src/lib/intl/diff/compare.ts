@@ -1,8 +1,11 @@
 import type { DiffOperation, DiffResult, DiffOperationType } from '../types';
+import { parsePath } from '../utils/flatten';
 
 /**
- * Extracts all key paths from a nested object in depth-first order.
- * Returns array of dot-notation paths (e.g., ['user', 'user.name', 'user.email']).
+ * Extracts all leaf key paths from a nested object in depth-first order.
+ * Returns only leaf paths (no parent/intermediate paths).
+ * Arrays are traversed with bracket notation (e.g., items[0].name).
+ * Nested arrays (array-in-array) are treated as opaque leaves.
  */
 export function extractKeyOrder(
   obj: Record<string, unknown>,
@@ -12,11 +15,29 @@ export function extractKeyOrder(
 
   for (const key of Object.keys(obj)) {
     const path = prefix ? `${prefix}.${key}` : key;
-    keys.push(path);
-
     const value = obj[key];
-    if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
+
+    if (Array.isArray(value)) {
+      // Recurse into array elements -- do NOT push the array path itself
+      value.forEach((item, index) => {
+        const arrayPath = `${path}[${index}]`;
+
+        if (item !== null && typeof item === 'object' && !Array.isArray(item)) {
+          // Object inside array -- recurse, do NOT push arrayPath itself
+          keys.push(...extractKeyOrder(item as Record<string, unknown>, arrayPath));
+        } else {
+          // Primitive leaf or nested array (nested array is out of scope -- treat as opaque leaf)
+          // NOTE: Nested arrays (array-in-array) are not expected in i18n data.
+          // Treated as opaque leaves. If needed in the future, implement dedicated handling.
+          keys.push(arrayPath);
+        }
+      });
+    } else if (value !== null && typeof value === 'object') {
+      // Object -- recurse, do NOT push the object path itself
       keys.push(...extractKeyOrder(value as Record<string, unknown>, path));
+    } else {
+      // Leaf node (string, number, boolean, null, undefined)
+      keys.push(path);
     }
   }
 
@@ -24,34 +45,55 @@ export function extractKeyOrder(
 }
 
 /**
- * Gets the value at a dot-notation path in an object.
+ * Gets the value at a path (dot-notation or bracket-notation) in an object.
  */
 function getValueAtPath(obj: Record<string, unknown>, path: string): unknown {
-  const parts = path.split('.');
-  let current: any = obj;
+  const segments = parsePath(path);
+  let current: unknown = obj;
 
-  for (const part of parts) {
-    if (current === null || current === undefined) {
+  for (const segment of segments) {
+    if (current == null) return undefined;
+
+    if (Array.isArray(current)) {
+      const index = parseInt(segment, 10);
+      if (isNaN(index) || index < 0 || index >= current.length) {
+        return undefined;
+      }
+      current = current[index];
+    } else if (typeof current === 'object') {
+      current = (current as Record<string, unknown>)[segment];
+    } else {
       return undefined;
     }
-    current = current[part];
   }
 
   return current;
 }
 
 /**
- * Checks if a value exists at a dot-notation path in an object.
+ * Checks if a value exists at a path (dot-notation or bracket-notation) in an object.
  */
 function hasPath(obj: Record<string, unknown>, path: string): boolean {
-  const parts = path.split('.');
-  let current: any = obj;
+  const segments = parsePath(path);
+  let current: unknown = obj;
 
-  for (const part of parts) {
-    if (current === null || current === undefined || !(part in current)) {
+  for (const segment of segments) {
+    if (current == null) return false;
+
+    if (Array.isArray(current)) {
+      const index = parseInt(segment, 10);
+      if (isNaN(index) || index < 0 || index >= current.length) {
+        return false;
+      }
+      current = current[index];
+    } else if (typeof current === 'object') {
+      if (!(segment in (current as Record<string, unknown>))) {
+        return false;
+      }
+      current = (current as Record<string, unknown>)[segment];
+    } else {
       return false;
     }
-    current = current[part];
   }
 
   return true;
@@ -60,6 +102,7 @@ function hasPath(obj: Record<string, unknown>, path: string): boolean {
 /**
  * Compares two JSON objects and returns a detailed diff result.
  * Detects MISSING, ORPHANED, TYPE_MISMATCH, VALUE_DIFF, and EQUAL operations.
+ * Only leaf paths are compared (no parent/intermediate object or array paths).
  */
 export function compareJson(
   source: Record<string, unknown>,
@@ -110,18 +153,11 @@ export function compareJson(
         operationType = 'TYPE_MISMATCH';
         stats.typeMismatch++;
       } else if (sourceType === 'object' && targetType === 'object') {
-        // Skip nested objects - their children will be compared individually
+        // Skip nested objects - their children are compared individually
         continue;
-      } else if (sourceType === 'array' || targetType === 'array') {
-        // For arrays, check if they're deeply equal
-        const arraysEqual =
-          JSON.stringify(sourceValue) === JSON.stringify(targetValue);
-        if (arraysEqual) {
-          operationType = 'EQUAL';
-          stats.equal++;
-        } else {
-          operationType = 'VALUE_DIFF';
-        }
+      } else if (sourceType === 'array' && targetType === 'array') {
+        // Skip array parents - their children are compared individually as leaf nodes
+        continue;
       } else {
         // Primitive comparison
         if (sourceValue === targetValue) {

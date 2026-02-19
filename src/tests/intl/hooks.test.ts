@@ -618,7 +618,12 @@ describe('use-intl-sync', () => {
           ], targetValue: undefined },
         ],
         stats: { missing: 1, orphaned: 0, typeMismatch: 0, equal: 0 },
-        sourceKeyOrder: ['certification.ol'],
+        sourceKeyOrder: [
+          'certification.ol[0].title',
+          'certification.ol[0].desc',
+          'certification.ol[1].title',
+          'certification.ol[1].desc',
+        ],
         targetKeyOrder: [],
       });
 
@@ -664,6 +669,56 @@ describe('use-intl-sync', () => {
 
       // Must NOT contain [object Object]
       expect(exported).not.toContain('[object Object]');
+    });
+
+    it('should preserve existing target translations when partially re-translating array items', async () => {
+      const { compareJson } = await import('@/lib/intl/diff');
+      vi.mocked(compareJson).mockReturnValueOnce({
+        operations: [
+          { type: 'VALUE_DIFF', keyPath: 'ol[0].text', sourceValue: 'English A', targetValue: 'Korean A' },
+          { type: 'VALUE_DIFF', keyPath: 'ol[1].text', sourceValue: 'English B', targetValue: 'Korean B' },
+        ],
+        stats: { missing: 0, orphaned: 0, typeMismatch: 0, equal: 2 },
+        sourceKeyOrder: ['ol[0].id', 'ol[0].text', 'ol[1].id', 'ol[1].text'],
+        targetKeyOrder: ['ol[0].id', 'ol[0].text', 'ol[1].id', 'ol[1].text'],
+      });
+
+      const { result } = renderHook(() => useIntlSync());
+
+      act(() => {
+        result.current.setSourceJson(JSON.stringify({
+          ol: [
+            { id: 'cert-1', text: 'English A' },
+            { id: 'cert-2', text: 'English B' },
+          ],
+        }));
+        result.current.setTargetJson(JSON.stringify({
+          ol: [
+            { id: 'cert-1', text: 'Korean A' },
+            { id: 'cert-2', text: 'Korean B' },
+          ],
+        }));
+      });
+
+      act(() => {
+        result.current.runDiff();
+      });
+
+      // User only re-translates ol[0].text, NOT ol[1].text
+      act(() => {
+        useIntlSyncStore.getState().setTranslations([
+          { key: 'ol[0].text', original: 'English A', translated: 'New Korean A', status: 'completed' },
+        ]);
+      });
+
+      const exported = result.current.exportResult();
+      const parsed = JSON.parse(exported);
+
+      expect(parsed.ol[0].text).toBe('New Korean A');  // newly translated
+      expect(parsed.ol[0].id).toBe('cert-1');           // preserved from structure
+      // CRITICAL: ol[1].text must be from TARGET ("Korean B"), NOT source ("English B")
+      expect(parsed.ol[1].text).toBe('Korean B');       // preserved from TARGET
+      expect(parsed.ol[1].id).toBe('cert-2');           // preserved from structure
     });
 
     it('should handle basePath extraction correctly for nested arrays', () => {
