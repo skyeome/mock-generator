@@ -269,7 +269,7 @@ describe('use-intl-sync', () => {
       expect(result.current.translations).toHaveLength(0);
     });
 
-    it('should process translations in batches', async () => {
+    it('should send all entries in a single API call', async () => {
       const mockFetch = vi.fn().mockImplementation(async (url, options) => {
         const body = JSON.parse(options.body);
         const translations = Object.fromEntries(
@@ -316,8 +316,8 @@ describe('use-intl-sync', () => {
       });
 
       expect(result.current.translations).toHaveLength(12);
-      // With batch size of 5, we expect 3 API calls (5 + 5 + 2)
-      expect(mockFetch).toHaveBeenCalledTimes(3);
+      // All entries are sent in a single API call
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
   });
 

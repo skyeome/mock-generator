@@ -202,9 +202,6 @@ ${JSON.stringify(Object.fromEntries(entries.map((e) => [e.key, e.value])), null,
   return translations;
 }
 
-/**
- * Chunked translation orchestrator for Cloudflare AI
- */
 interface ChunkedTranslationResult {
   translations: Record<string, string>;
   failedKeys: string[];
@@ -212,6 +209,129 @@ interface ChunkedTranslationResult {
   successfulChunks: number;
 }
 
+/**
+ * Gemini: Use Google Generative Language API (fastest)
+ */
+async function translateWithGemini(
+  sourceLocale: string,
+  targetLocale: string,
+  entries: Array<{ key: string; value: string }>,
+  tone?: "formal" | "casual",
+  context?: string,
+): Promise<Record<string, string>> {
+  const apiKey = process.env?.GOOGLE_API_KEY;
+  if (!apiKey) {
+    throw new Error("GOOGLE_API_KEY not configured");
+  }
+
+  const model = process.env?.GEMINI_MODEL || "gemini-2.5-flash";
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+  const prompt = `Translate from ${sourceLocale} to ${targetLocale}:
+${JSON.stringify(Object.fromEntries(entries.map((e) => [e.key, e.value])), null, 2)}`;
+
+  const response = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      contents: [{
+        parts: [{
+          text: `${buildSystemPrompt(tone, context)}\n\n${prompt}`
+        }]
+      }],
+      generationConfig: {
+        maxOutputTokens: 4096,
+        temperature: 0.3,
+      }
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Gemini API error: ${response.status}`);
+  }
+
+  const data = await response.json() as {
+    candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
+  };
+  const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+  if (!content) {
+    throw new Error("No content in Gemini response");
+  }
+
+  const jsonMatch = content.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    throw new Error("No JSON in AI response");
+  }
+
+  const rawTranslations = JSON.parse(jsonMatch[0]) as Record<string, string>;
+
+  // Filter out any masking token keys
+  const translations: Record<string, string> = {};
+  for (const [key, value] of Object.entries(rawTranslations)) {
+    if (!key.startsWith("__VAR_") && !key.startsWith("__HTML_")) {
+      translations[key] = value;
+    }
+  }
+
+  return translations;
+}
+
+/**
+ * Chunked translation orchestrator for Gemini (optimized for speed)
+ */
+async function translateChunkedGemini(
+  sourceLocale: string,
+  targetLocale: string,
+  entries: Array<{ key: string; value: string }>,
+  tone?: "formal" | "casual",
+  context?: string,
+): Promise<ChunkedTranslationResult> {
+  const CHUNK_SIZE = 40;       // Gemini handles larger batches efficiently
+  const TIMEOUT_MS = 15000;    // 15s timeout (Gemini is faster)
+  const MAX_RETRIES = 2;       // Fewer retries needed
+  const BASE_DELAY_MS = 500;   // Shorter backoff
+  const chunks = chunkArray(entries, CHUNK_SIZE);
+
+  const allTranslations: Record<string, string> = {};
+  const failedKeys: string[] = [];
+  let successfulChunks = 0;
+
+  const results = await Promise.allSettled(
+    chunks.map(chunk =>
+      retryWithBackoff(
+        () => withTimeout(
+          translateWithGemini(sourceLocale, targetLocale, chunk, tone, context),
+          TIMEOUT_MS
+        ),
+        MAX_RETRIES,
+        BASE_DELAY_MS
+      )
+    )
+  );
+
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.status === 'fulfilled') {
+      Object.assign(allTranslations, result.value);
+      successfulChunks++;
+    } else {
+      console.error(`Gemini chunk ${i} failed after retries:`, result.reason);
+      failedKeys.push(...chunks[i].map(e => e.key));
+    }
+  }
+
+  return {
+    translations: allTranslations,
+    failedKeys,
+    totalChunks: chunks.length,
+    successfulChunks,
+  };
+}
+
+/**
+ * Chunked translation orchestrator for Cloudflare AI
+ */
 async function translateChunked(
   sourceLocale: string,
   targetLocale: string,
@@ -228,22 +348,27 @@ async function translateChunked(
   const failedKeys: string[] = [];
   let successfulChunks = 0;
 
-  for (const chunk of chunks) {
-    try {
-      const chunkTranslations = await retryWithBackoff(
+  const results = await Promise.allSettled(
+    chunks.map(chunk =>
+      retryWithBackoff(
         () => withTimeout(
           translateWithCloudflare(sourceLocale, targetLocale, chunk, ai, tone, context),
           TIMEOUT_MS
         ),
         3,
         1000
-      );
+      )
+    )
+  );
 
-      Object.assign(allTranslations, chunkTranslations);
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.status === 'fulfilled') {
+      Object.assign(allTranslations, result.value);
       successfulChunks++;
-    } catch (error) {
-      console.error(`Chunk failed after retries:`, error);
-      failedKeys.push(...chunk.map(e => e.key));
+    } else {
+      console.error(`Chunk ${i} failed after retries:`, result.reason);
+      failedKeys.push(...chunks[i].map(e => e.key));
     }
   }
 
@@ -273,22 +398,27 @@ async function translateChunkedOpenAI(
   const failedKeys: string[] = [];
   let successfulChunks = 0;
 
-  for (const chunk of chunks) {
-    try {
-      const chunkTranslations = await retryWithBackoff(
+  const results = await Promise.allSettled(
+    chunks.map(chunk =>
+      retryWithBackoff(
         () => withTimeout(
           translateWithOpenAI(sourceLocale, targetLocale, chunk, tone, context),
           TIMEOUT_MS
         ),
         3,
         1000
-      );
+      )
+    )
+  );
 
-      Object.assign(allTranslations, chunkTranslations);
+  for (let i = 0; i < results.length; i++) {
+    const result = results[i];
+    if (result.status === 'fulfilled') {
+      Object.assign(allTranslations, result.value);
       successfulChunks++;
-    } catch (error) {
-      console.error(`Chunk failed after retries:`, error);
-      failedKeys.push(...chunk.map(e => e.key));
+    } else {
+      console.error(`Chunk ${i} failed after retries:`, result.reason);
+      failedKeys.push(...chunks[i].map(e => e.key));
     }
   }
 
@@ -323,7 +453,53 @@ export async function POST(
       );
     }
 
-    if (isDev) {
+    // Determine provider: explicit env var > dev/prod default
+    const provider = process.env?.AI_PROVIDER || (isDev ? 'openai' : 'cloudflare');
+
+    if (provider === 'gemini') {
+      // Use Google Gemini API (fastest)
+      const apiKey = process.env?.GOOGLE_API_KEY;
+      if (!apiKey) {
+        // Fallback to prefix-based translations
+        const fallbackTranslations: Record<string, string> = {};
+        for (const entry of entries) {
+          fallbackTranslations[entry.key] = `[${targetLocale.toUpperCase()}] ${entry.value}`;
+        }
+        return NextResponse.json({
+          success: true,
+          translations: fallbackTranslations,
+          fallback: true,
+        });
+      }
+
+      const result = await translateChunkedGemini(
+        sourceLocale,
+        targetLocale,
+        entries,
+        tone,
+        context,
+      );
+
+      if (result.successfulChunks === 0) {
+        return NextResponse.json(
+          { success: false, error: "All translation chunks failed" },
+          { status: 500 },
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        translations: result.translations,
+        partial: result.failedKeys.length > 0,
+        failedKeys: result.failedKeys.length > 0 ? result.failedKeys : undefined,
+        stats: {
+          totalChunks: result.totalChunks,
+          successfulChunks: result.successfulChunks,
+        },
+      });
+    }
+
+    if (provider === 'openai') {
       // Development: Use LM Studio with chunked processing
       const result = await translateChunkedOpenAI(
         sourceLocale,
@@ -351,8 +527,10 @@ export async function POST(
           successfulChunks: result.successfulChunks,
         },
       });
-    } else {
-      // Production: Use Cloudflare AI
+    }
+
+    // Cloudflare AI (production default)
+    {
       let ai: Ai | undefined;
       try {
         const ctx = await getCloudflareContext();
