@@ -301,7 +301,8 @@ describe('Translation API Timeout Fix - Utility Functions', () => {
 
       await expect(resultPromise).rejects.toThrow('Custom error');
       await advancePromise;
-      const error = await resultPromise.catch(e => e);
+      const caught = await resultPromise.catch((e: unknown) => e);
+      const error = caught as Error;
       expect(error.name).toBe('CustomError');
     });
   });
@@ -365,6 +366,7 @@ describe('Translation API - Chunked Scenarios', () => {
       failedKeys,
       totalChunks: chunks.length,
       successfulChunks,
+      stats: undefined as { totalChunks: number; successfulChunks: number } | undefined,
     };
   }
 
