@@ -33,6 +33,7 @@ interface KeyTreeProps {
   onToggleKey: (key: string) => void;
   onSelectKey: (key: string) => void;
   validationResults?: ValidationResult[];
+  filter?: 'all' | 'missing' | 'selected';
 }
 
 interface TreeNode {
@@ -92,14 +93,26 @@ export function KeyTree({
   onToggleKey,
   onSelectKey,
   validationResults = [],
+  filter = 'all',
 }: KeyTreeProps) {
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+
+  const filteredOperations = useMemo(() => {
+    if (filter === 'all') return operations;
+    if (filter === 'missing') {
+      return operations.filter((op) => op.type === 'MISSING');
+    }
+    if (filter === 'selected') {
+      return operations.filter((op) => selectedKeys.includes(op.keyPath));
+    }
+    return operations;
+  }, [operations, filter, selectedKeys]);
 
   // Build tree structure from flat keys
   const tree = useMemo(() => {
     const root = new Map<string, TreeNode>();
 
-    operations.forEach((operation) => {
+    filteredOperations.forEach((operation) => {
       const parts = splitKeyPath(operation.keyPath);
       let currentLevel = root;
 
@@ -130,7 +143,7 @@ export function KeyTree({
     });
 
     return root;
-  }, [operations]);
+  }, [filteredOperations]);
 
   // Create validation map for quick lookup
   const validationMap = useMemo(() => {

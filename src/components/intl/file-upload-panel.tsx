@@ -2,7 +2,8 @@
 
 import { useCallback, useState } from 'react';
 import { Upload, FileJson, X } from 'lucide-react';
-import { Select } from '@/components/ui/select';
+import { SearchableSelect } from '@/components/ui/searchable-select';
+import { detectLocaleFromFileName } from '@/lib/intl/locale/detectLocaleFromFileName';
 import { clsx } from 'clsx';
 
 interface FileUploadPanelProps {
@@ -25,6 +26,17 @@ const LOCALES = [
   { value: 'it', label: 'Italian' },
   { value: 'pt', label: 'Portuguese' },
   { value: 'ru', label: 'Russian' },
+  { value: 'ar', label: 'Arabic' },
+  { value: 'hi', label: 'Hindi' },
+  { value: 'nl', label: 'Dutch' },
+  { value: 'pl', label: 'Polish' },
+  { value: 'tr', label: 'Turkish' },
+  { value: 'vi', label: 'Vietnamese' },
+  { value: 'th', label: 'Thai' },
+  { value: 'id', label: 'Indonesian' },
+  { value: 'uk', label: 'Ukrainian' },
+  { value: 'cs', label: 'Czech' },
+  { value: 'sv', label: 'Swedish' },
 ];
 
 export function FileUploadPanel({
@@ -39,6 +51,11 @@ export function FileUploadPanel({
 
   const handleFileRead = useCallback(
     (file: File) => {
+      const detectedLocale = detectLocaleFromFileName(file.name);
+      if (detectedLocale) {
+        onLocaleChange(detectedLocale);
+      }
+      
       const reader = new FileReader();
       reader.onload = (e) => {
         const content = e.target?.result as string;
@@ -46,7 +63,7 @@ export function FileUploadPanel({
       };
       reader.readAsText(file);
     },
-    [onFileContent]
+    [onFileContent, onLocaleChange]
   );
 
   const handleDrop = useCallback(
@@ -93,9 +110,9 @@ export function FileUploadPanel({
         <label className="text-sm font-semibold text-foreground">
           {label}
         </label>
-        <Select
+        <SearchableSelect
           value={locale}
-          onChange={(e) => onLocaleChange(e.target.value)}
+          onChange={onLocaleChange}
           options={LOCALES}
           className="w-40"
         />

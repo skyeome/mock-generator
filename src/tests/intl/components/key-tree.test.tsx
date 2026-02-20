@@ -321,3 +321,58 @@ describe('KeyTree - bracket notation path support', () => {
     expect(screen.getByText('name')).toBeInTheDocument();
   });
 });
+
+describe('KeyTree - filter behavior', () => {
+  const operations: DiffOperation[] = [
+    {
+      type: 'MISSING',
+      keyPath: 'common.hello',
+      sourceValue: 'Hello',
+      targetValue: undefined,
+    },
+    {
+      type: 'ORPHANED',
+      keyPath: 'auth.login',
+      sourceValue: undefined,
+      targetValue: 'Login',
+    },
+    {
+      type: 'VALUE_DIFF',
+      keyPath: 'auth.logout',
+      sourceValue: 'Logout',
+      targetValue: 'Log out',
+    },
+  ];
+
+  it('shows only missing keys when filter is missing', () => {
+    render(
+      <KeyTree
+        operations={operations}
+        selectedKeys={[]}
+        onSelectKey={vi.fn()}
+        onToggleKey={vi.fn()}
+        filter="missing"
+      />
+    );
+
+    expect(screen.getByText('hello')).toBeInTheDocument();
+    expect(screen.queryByText('login')).not.toBeInTheDocument();
+    expect(screen.queryByText('logout')).not.toBeInTheDocument();
+  });
+
+  it('shows only selected keys when filter is selected', () => {
+    render(
+      <KeyTree
+        operations={operations}
+        selectedKeys={['auth.login']}
+        onSelectKey={vi.fn()}
+        onToggleKey={vi.fn()}
+        filter="selected"
+      />
+    );
+
+    expect(screen.getByText('login')).toBeInTheDocument();
+    expect(screen.queryByText('hello')).not.toBeInTheDocument();
+    expect(screen.queryByText('logout')).not.toBeInTheDocument();
+  });
+});

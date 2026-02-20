@@ -271,10 +271,22 @@ export function useIntlSync() {
     return JSON.stringify(reordered, null, 2);
   }, []);
 
+  const translateAllMissing = useCallback(async () => {
+    const state = useIntlSyncStore.getState();
+    state.selectAllMissing();
+    await translateSelected();
+    const exported = exportResult();
+    if (exported) {
+      state.setTargetJson(exported);
+    }
+    state.clearSelection();
+  }, [translateSelected, exportResult]);
+
   return {
     ...store,
     runDiff,
     translateSelected,
+    translateAllMissing,
     validateAll,
     exportResult,
   };

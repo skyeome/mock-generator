@@ -8,13 +8,14 @@ import { DiffViewer } from "./diff-viewer";
 import { ExportPanel } from "./export-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { AlertCircle, Languages, Loader2 } from "lucide-react";
+import { AlertCircle, Languages, Loader2, ArrowLeftRight } from "lucide-react";
 
 export function I18nSyncPage() {
   const intl = useIntlSync();
   const [sourceFileName, setSourceFileName] = useState("");
   const [targetFileName, setTargetFileName] = useState("");
   const [selectedKeyForView, setSelectedKeyForView] = useState<string | null>(null);
+  const [keyFilter, setKeyFilter] = useState<'all' | 'missing' | 'selected'>('all');
 
   // Run diff when source or target changes
   useEffect(() => {
@@ -49,6 +50,16 @@ export function I18nSyncPage() {
   const handleClearSelection = useCallback(() => {
     intl.clearSelection();
   }, [intl]);
+
+  const handleSwap = useCallback(() => {
+    intl.setSourceLocale(intl.targetLocale);
+    intl.setTargetLocale(intl.sourceLocale);
+    intl.setSourceJson(intl.targetJson);
+    intl.setTargetJson(intl.sourceJson);
+    setSourceFileName(targetFileName);
+    setTargetFileName(sourceFileName);
+    intl.clearSelection();
+  }, [intl, sourceFileName, targetFileName]);
 
   const handleSelectKey = useCallback((key: string) => {
     setSelectedKeyForView(key);
@@ -88,7 +99,7 @@ export function I18nSyncPage() {
         </div>
 
         {/* File Upload */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_auto_1fr] gap-2 items-start">
           <FileUploadPanel
             label="Source Language"
             locale={intl.sourceLocale}
@@ -97,6 +108,15 @@ export function I18nSyncPage() {
             error={intl.sourceError}
             fileName={sourceFileName}
           />
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleSwap}
+            className="mt-10"
+            title="Swap source and target"
+          >
+            <ArrowLeftRight className="w-4 h-4" />
+          </Button>
           <FileUploadPanel
             label="Target Language"
             locale={intl.targetLocale}
@@ -141,15 +161,37 @@ export function I18nSyncPage() {
                     <h3 className="text-sm font-semibold text-foreground">
                       Translation Keys
                     </h3>
-                    <div className="flex items-center gap-3 mt-2 text-xs">
-                      <span className="text-muted-foreground">
-                        {operations.length} keys
-                      </span>
-                      {stats.missing > 0 && (
-                        <span className="text-destructive font-medium">
-                          {stats.missing} missing
-                        </span>
-                      )}
+                    <div className="flex items-center gap-1 mt-2">
+                      <button
+                        onClick={() => setKeyFilter('all')}
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                          keyFilter === 'all'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-muted'
+                        }`}
+                      >
+                        All ({operations.length})
+                      </button>
+                      <button
+                        onClick={() => setKeyFilter('missing')}
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                          keyFilter === 'missing'
+                            ? 'bg-destructive text-white'
+                            : 'text-muted-foreground hover:bg-muted'
+                        }`}
+                      >
+                        Missing ({stats.missing})
+                      </button>
+                      <button
+                        onClick={() => setKeyFilter('selected')}
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                          keyFilter === 'selected'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'text-muted-foreground hover:bg-muted'
+                        }`}
+                      >
+                        Selected ({intl.selectedKeys.length})
+                      </button>
                     </div>
                   </div>
 
@@ -159,6 +201,7 @@ export function I18nSyncPage() {
                     selectedKeys={intl.selectedKeys}
                     onToggleKey={handleToggleKey}
                     onSelectKey={handleSelectKey}
+                    filter={keyFilter}
                   />
                 </div>
               </div>
@@ -234,9 +277,21 @@ export function I18nSyncPage() {
                           ? "Select keys to translate"
                           : `${intl.selectedKeys.length} ${intl.selectedKeys.length === 1 ? "key" : "keys"} selected`}
                       </p>
+                      {stats.missing > 0 && (
+                        <Button
+                          onClick={intl.translateAllMissing}
+                          disabled={!hasFiles}
+                          variant="primary"
+                          className="w-full"
+                        >
+                          <Languages className="w-4 h-4 mr-2" />
+                          Translate All Missing ({stats.missing})
+                        </Button>
+                      )}
                       <Button
                         onClick={handleTranslate}
                         disabled={!hasFiles || intl.selectedKeys.length === 0}
+                        variant="secondary"
                         className="w-full"
                       >
                         <Languages className="w-4 h-4 mr-2" />
