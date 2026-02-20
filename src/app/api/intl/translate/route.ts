@@ -51,6 +51,7 @@ async function retryWithBackoff<T>(
   fn: () => Promise<T>,
   maxAttempts: number = 3,
   baseDelayMs: number = 1000,
+  shouldRetry: (error: Error) => boolean = () => true,
 ): Promise<T> {
   let lastError: Error | undefined;
 
@@ -61,6 +62,10 @@ async function retryWithBackoff<T>(
       lastError = error as Error;
       console.warn(`Attempt ${attempt}/${maxAttempts} failed:`, lastError.message);
 
+      if (!shouldRetry(lastError)) {
+        throw lastError;
+      }
+
       if (attempt < maxAttempts) {
         const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
         await delay(delayMs);
@@ -69,6 +74,20 @@ async function retryWithBackoff<T>(
   }
 
   throw lastError;
+}
+
+function resolveGeminiModel(): string {
+  return String(process.env?.GEMINI_MODEL ?? "gemini-3-flash-preview");
+}
+
+function isNonRetryableGeminiError(error: Error): boolean {
+  const message = error.message;
+  return (
+    message.includes("Gemini API error: 400") ||
+    message.includes("Gemini API error: 401") ||
+    message.includes("Gemini API error: 403") ||
+    message.includes("Gemini API error: 404")
+  );
 }
 
 const buildSystemPrompt = (
@@ -224,7 +243,7 @@ async function translateWithGemini(
     throw new Error("GOOGLE_API_KEY not configured");
   }
 
-  const model = process.env?.GEMINI_MODEL || "gemini-2.5-flash";
+  const model = resolveGeminiModel();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
   const prompt = `Translate from ${sourceLocale} to ${targetLocale}:
@@ -306,7 +325,8 @@ async function translateChunkedGemini(
           TIMEOUT_MS
         ),
         MAX_RETRIES,
-        BASE_DELAY_MS
+        BASE_DELAY_MS,
+        (error) => !isNonRetryableGeminiError(error)
       )
     )
   );
@@ -460,6 +480,8 @@ export async function POST(
     if (provider === 'gemini') {
       // Use Google Gemini API (fastest)
       const apiKey = process.env?.GOOGLE_API_KEY;
+      const model = resolveGeminiModel();
+
       if (!apiKey) {
         // Fallback to prefix-based translations
         const fallbackTranslations: Record<string, string> = {};

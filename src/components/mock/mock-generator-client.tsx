@@ -9,6 +9,7 @@ import { ExportActions } from '@/components/output/export-actions';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { AILoadingOverlay } from '@/components/ui/ai-loading-overlay';
+import { RewardedAdOverlay } from '@/components/ui/rewarded-ad-overlay';
 import {
   ResizablePanelGroup,
   ResizablePanel,
@@ -19,6 +20,7 @@ import { useGeneratorStore } from '@/store/generator-store';
 import { useExportStore } from '@/store/export-store';
 import { useSchemaInference } from '@/hooks/use-schema-inference';
 import { useMockGeneration } from '@/hooks/use-mock-generation';
+import { useRewardedAd } from '@/hooks/use-rewarded-ad';
 import { useExport } from '@/hooks/use-export';
 import type { JsonSchema } from '@/lib/types';
 import { Database } from 'lucide-react';
@@ -88,10 +90,13 @@ export function MockGeneratorClient() {
   const { format, setFormat } = useExportStore();
 
   const { isUsingAI, analyzeWithAI, cancelAIAnalysis, hasAIEnhancement, aiPreference, setAIPreference } = useSchemaInference();
+  const { requestRewardedAd, adState, resetAdState } = useRewardedAd();
   const { generate } = useMockGeneration({
     analyzeWithAI,
+    cancelAnalyzeWithAI: cancelAIAnalysis,
     aiPreference,
-    hasAIEnhancement
+    hasAIEnhancement,
+    requestRewardedAd,
   });
   const { exportData } = useExport();
 
@@ -107,8 +112,13 @@ export function MockGeneratorClient() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      {/* AI Loading Overlay */}
       <AILoadingOverlay isVisible={isUsingAI} onCancel={cancelAIAnalysis} />
+
+      <RewardedAdOverlay
+        isVisible={adState === 'prompt' || adState === 'watching' || adState === 'completed' || adState === 'dismissed'}
+        state={adState as 'prompt' | 'watching' | 'completed' | 'dismissed'}
+        onDismiss={resetAdState}
+      />
 
       {/* Header */}
       <header className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-6 py-3">

@@ -321,6 +321,121 @@ describe('use-intl-sync', () => {
     });
   });
 
+  describe('translateSelectedWithRewardedAds', () => {
+    it('should request one ad per translation batch based on entriesPerAd', async () => {
+      const mockFetch = vi.fn().mockImplementation(async (input, init?: RequestInit) => {
+        const body = JSON.parse(String(init?.body)) as {
+          entries: Array<{ key: string; value: string }>;
+        };
+
+        const translations = Object.fromEntries(
+          body.entries.map((entry) => [entry.key, `translated-${entry.value}`])
+        );
+
+        return {
+          ok: true,
+          json: async () => ({
+            success: true,
+            translations,
+          }),
+        };
+      });
+      global.fetch = mockFetch;
+
+      const requestRewardedAd = vi
+        .fn<() => Promise<boolean>>()
+        .mockResolvedValue(true);
+
+      const { result } = renderHook(() => useIntlSync());
+
+      const diffResult: DiffResult = {
+        operations: [
+          { type: 'MISSING', keyPath: 'k1', sourceValue: 'v1', targetValue: undefined },
+          { type: 'MISSING', keyPath: 'k2', sourceValue: 'v2', targetValue: undefined },
+          { type: 'MISSING', keyPath: 'k3', sourceValue: 'v3', targetValue: undefined },
+        ],
+        stats: { missing: 3, orphaned: 0, typeMismatch: 0, equal: 0 },
+        sourceKeyOrder: ['k1', 'k2', 'k3'],
+        targetKeyOrder: [],
+      };
+
+      act(() => {
+        result.current.setSourceJson('{"k1":"v1","k2":"v2","k3":"v3"}');
+        result.current.setTargetJson('{}');
+        result.current.setDiffResult(diffResult);
+        result.current.setSelectedKeys(['k1', 'k2', 'k3']);
+      });
+
+      await act(async () => {
+        await result.current.translateSelectedWithRewardedAds({
+          requestRewardedAd,
+          entriesPerAd: 2,
+        });
+      });
+
+      expect(requestRewardedAd).toHaveBeenCalledTimes(2);
+      expect(mockFetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('should abort active batch when ad is dismissed', async () => {
+      const abortError = new Error('Aborted');
+      abortError.name = 'AbortError';
+
+      const mockFetch = vi.fn().mockImplementation(async (input, init?: RequestInit) => {
+        const signal = init?.signal;
+
+        return new Promise((resolve, reject) => {
+          if (!(signal instanceof AbortSignal)) {
+            resolve({ ok: true, json: async () => ({ success: true, translations: {} }) });
+            return;
+          }
+
+          if (signal.aborted) {
+            reject(abortError);
+            return;
+          }
+
+          signal.addEventListener('abort', () => reject(abortError), { once: true });
+        });
+      });
+      global.fetch = mockFetch;
+
+      const requestRewardedAd = vi
+        .fn<() => Promise<boolean>>()
+        .mockResolvedValue(false);
+
+      const { result } = renderHook(() => useIntlSync());
+
+      const diffResult: DiffResult = {
+        operations: [
+          { type: 'MISSING', keyPath: 'k1', sourceValue: 'v1', targetValue: undefined },
+        ],
+        stats: { missing: 1, orphaned: 0, typeMismatch: 0, equal: 0 },
+        sourceKeyOrder: ['k1'],
+        targetKeyOrder: [],
+      };
+
+      act(() => {
+        result.current.setSourceJson('{"k1":"v1"}');
+        result.current.setTargetJson('{}');
+        result.current.setDiffResult(diffResult);
+        result.current.setSelectedKeys(['k1']);
+      });
+
+      let outcome: { success: boolean; cancelled: boolean } | undefined;
+      await act(async () => {
+        outcome = await result.current.translateSelectedWithRewardedAds({
+          requestRewardedAd,
+          entriesPerAd: 1,
+        });
+      });
+
+      expect(outcome).toEqual({ success: false, cancelled: true });
+      expect(requestRewardedAd).toHaveBeenCalledTimes(1);
+      expect(mockFetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
   describe('validateAll', () => {
     it('should set validation errors', () => {
       const { result } = renderHook(() => useIntlSync());

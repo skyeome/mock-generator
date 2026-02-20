@@ -69,9 +69,17 @@ export default function RootLayout({
         <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8121775555791709"
-          data-adbreak-test="on"
           crossOrigin="anonymous"
+          {...(process.env.NODE_ENV === 'development' ? { 'data-adbreak-test': 'on' } : {})}
         ></script>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.adsbygoogle = window.adsbygoogle || [];
+              var adBreak = adConfig = function(o) { adsbygoogle.push(o); };
+            `,
+          }}
+        />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

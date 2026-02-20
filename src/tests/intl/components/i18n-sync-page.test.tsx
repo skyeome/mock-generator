@@ -1,12 +1,17 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nSyncPage } from '@/components/intl/i18n-sync-page';
 import { useIntlSync } from '@/hooks/use-intl-sync';
+import { useRewardedAd } from '@/hooks/use-rewarded-ad';
 import type { Mock } from 'vitest';
 
 vi.mock('@/hooks/use-intl-sync', () => ({
   useIntlSync: vi.fn(),
+}));
+
+vi.mock('@/hooks/use-rewarded-ad', () => ({
+  useRewardedAd: vi.fn(),
 }));
 
 vi.mock('@/components/intl/file-upload-panel', () => ({
@@ -22,6 +27,7 @@ vi.mock('@/components/intl/export-panel', () => ({
 }));
 
 const useIntlSyncMock = useIntlSync as unknown as Mock;
+const useRewardedAdMock = useRewardedAd as unknown as Mock;
 
 function createIntlMock(overrides: Record<string, unknown> = {}) {
   const base = {
@@ -37,6 +43,8 @@ function createIntlMock(overrides: Record<string, unknown> = {}) {
     selectedKeys: [] as string[],
     isTranslating: false,
     translationProgress: 0,
+    translationStatusText: null,
+    translationEtaSeconds: null,
     runDiff: vi.fn(),
     setSourceJson: vi.fn(),
     setTargetJson: vi.fn(),
@@ -47,6 +55,7 @@ function createIntlMock(overrides: Record<string, unknown> = {}) {
     clearSelection: vi.fn(),
     translateSelected: vi.fn().mockResolvedValue(undefined),
     translateAllMissing: vi.fn().mockResolvedValue(undefined),
+    translateSelectedWithRewardedAds: vi.fn().mockResolvedValue({ success: true, cancelled: false }),
     exportResult: vi.fn().mockReturnValue('{"hello":"안녕"}'),
   };
 
@@ -54,6 +63,14 @@ function createIntlMock(overrides: Record<string, unknown> = {}) {
 }
 
 describe('I18nSyncPage', () => {
+  beforeEach(() => {
+    useRewardedAdMock.mockReturnValue({
+      requestRewardedAd: vi.fn().mockResolvedValue(true),
+      adState: 'idle',
+      resetAdState: vi.fn(),
+    });
+  });
+
   it('does not show action section when source/target files are not loaded', () => {
     useIntlSyncMock.mockReturnValue(createIntlMock());
 
@@ -92,7 +109,7 @@ describe('I18nSyncPage', () => {
     await user.click(translateAllButton);
 
     expect(intl.selectAllMissing).toHaveBeenCalled();
-    expect(intl.translateAllMissing).toHaveBeenCalled();
+    expect(intl.translateSelectedWithRewardedAds).toHaveBeenCalled();
   });
 
   it('translates selected keys and updates exported target JSON', async () => {
@@ -116,7 +133,7 @@ describe('I18nSyncPage', () => {
     const translateSelectedButton = screen.getByRole('button', { name: /translate selected/i });
     await user.click(translateSelectedButton);
 
-    expect(intl.translateSelected).toHaveBeenCalled();
+    expect(intl.translateSelectedWithRewardedAds).toHaveBeenCalled();
     expect(intl.exportResult).toHaveBeenCalled();
     expect(intl.setTargetJson).toHaveBeenCalledWith('{"hello":"안녕"}');
     expect(intl.clearSelection).toHaveBeenCalled();

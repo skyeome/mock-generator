@@ -129,6 +129,28 @@ describe('useMockGeneration', () => {
       expect(consoleSpy).toHaveBeenCalledWith('AI analysis failed. Using pattern-based detection.');
       consoleSpy.mockRestore();
     });
+
+    it('should cancel in-flight AI analysis when rewarded ad is not granted', async () => {
+      const mockRequestRewardedAd = vi.fn().mockResolvedValue(false);
+      const mockCancelAnalyzeWithAI = vi.fn();
+
+      const { result } = renderHook(() =>
+        useMockGeneration({
+          analyzeWithAI: mockAnalyzeWithAI,
+          cancelAnalyzeWithAI: mockCancelAnalyzeWithAI,
+          aiPreference: true,
+          hasAIEnhancement: false,
+          requestRewardedAd: mockRequestRewardedAd,
+        })
+      );
+
+      await act(async () => {
+        await result.current.generate();
+      });
+
+      expect(mockRequestRewardedAd).toHaveBeenCalledTimes(1);
+      expect(mockCancelAnalyzeWithAI).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('error handling', () => {

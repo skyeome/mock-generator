@@ -25,6 +25,8 @@ describe('intl-store', () => {
       expect(state.translations).toEqual([]);
       expect(state.isTranslating).toBe(false);
       expect(state.translationProgress).toBe(0);
+      expect(state.translationStatusText).toBeNull();
+      expect(state.translationEtaSeconds).toBeNull();
       expect(state.validationErrors).toEqual([]);
       expect(state.selectedKeys).toEqual([]);
       expect(state.viewMode).toBe('diff');
@@ -182,6 +184,22 @@ describe('intl-store', () => {
 
       useIntlSyncStore.getState().setIsTranslating(false);
       expect(useIntlSyncStore.getState().isTranslating).toBe(false);
+    });
+
+    it('should set translation status text', () => {
+      useIntlSyncStore.getState().setTranslationStatusText('Translating batch 1/3...');
+      expect(useIntlSyncStore.getState().translationStatusText).toBe('Translating batch 1/3...');
+
+      useIntlSyncStore.getState().setTranslationStatusText(null);
+      expect(useIntlSyncStore.getState().translationStatusText).toBeNull();
+    });
+
+    it('should set translation eta seconds', () => {
+      useIntlSyncStore.getState().setTranslationEtaSeconds(12);
+      expect(useIntlSyncStore.getState().translationEtaSeconds).toBe(12);
+
+      useIntlSyncStore.getState().setTranslationEtaSeconds(null);
+      expect(useIntlSyncStore.getState().translationEtaSeconds).toBeNull();
     });
   });
 

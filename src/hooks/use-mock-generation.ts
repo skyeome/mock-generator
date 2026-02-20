@@ -7,14 +7,18 @@ import { generateMockData } from '@/lib/generator/generateMock';
 
 interface UseMockGenerationOptions {
   analyzeWithAI: () => Promise<{ success: boolean; aborted?: boolean; error?: string }>;
+  cancelAnalyzeWithAI?: () => void;
   aiPreference: boolean;
   hasAIEnhancement: boolean;
+  requestRewardedAd?: () => Promise<boolean>;
 }
 
 export function useMockGeneration({
   analyzeWithAI,
+  cancelAnalyzeWithAI,
   aiPreference,
-  hasAIEnhancement
+  hasAIEnhancement,
+  requestRewardedAd
 }: UseMockGenerationOptions) {
   const { schema } = useSchemaStore();
   const {
@@ -34,7 +38,19 @@ export function useMockGeneration({
     try {
       // Step 1: Run AI analysis if preference is ON and not already applied
       if (aiPreference && !hasAIEnhancement) {
-        const aiResult = await analyzeWithAI();
+        const aiPromise = analyzeWithAI();
+        let adGranted = true;
+
+        if (requestRewardedAd) {
+          adGranted = await requestRewardedAd();
+          if (!adGranted) {
+            cancelAnalyzeWithAI?.();
+            await aiPromise.catch(() => undefined);
+            return;
+          }
+        }
+
+        const aiResult = await aiPromise;
 
         if (aiResult.aborted) {
           // User cancelled AI - log and proceed with regex
@@ -45,6 +61,11 @@ export function useMockGeneration({
         }
         // If success, schema is now AI-enhanced (state updated by analyzeWithAI)
         // Either way, proceed to generation
+      } else if (requestRewardedAd) {
+        const adGranted = await requestRewardedAd();
+        if (!adGranted) {
+          return;
+        }
       }
 
       // Step 2: Allow UI to update before CPU-intensive generation
@@ -61,7 +82,17 @@ export function useMockGeneration({
     } finally {
       setIsGenerating(false);
     }
-  }, [schema, getConfig, setGeneratedData, setIsGenerating, analyzeWithAI, aiPreference, hasAIEnhancement]);
+  }, [
+    schema,
+    getConfig,
+    setGeneratedData,
+    setIsGenerating,
+    analyzeWithAI,
+    cancelAnalyzeWithAI,
+    aiPreference,
+    hasAIEnhancement,
+    requestRewardedAd,
+  ]);
 
   return { generate };
 }

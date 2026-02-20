@@ -55,6 +55,8 @@ export interface IntlSyncState {
   translations: TranslationEntry[];
   isTranslating: boolean;
   translationProgress: number;
+  translationStatusText: string | null;
+  translationEtaSeconds: number | null;
 
   // Validation state
   validationErrors: ValidationError[];
@@ -73,6 +75,8 @@ export interface IntlSyncState {
   updateTranslation: (key: string, translated: string) => void;
   setIsTranslating: (isTranslating: boolean) => void;
   setTranslationProgress: (progress: number) => void;
+  setTranslationStatusText: (status: string | null) => void;
+  setTranslationEtaSeconds: (seconds: number | null) => void;
   setValidationErrors: (errors: ValidationError[]) => void;
   setSelectedKeys: (keys: string[]) => void;
   toggleKeySelection: (key: string) => void;
@@ -95,6 +99,8 @@ const initialState = {
   translations: [],
   isTranslating: false,
   translationProgress: 0,
+  translationStatusText: null,
+  translationEtaSeconds: null,
   validationErrors: [],
   selectedKeys: [],
   viewMode: 'diff' as ViewMode,
@@ -137,6 +143,8 @@ export const useIntlSyncStore = create<IntlSyncState>()(
 
       setIsTranslating: (isTranslating) => set({ isTranslating }),
       setTranslationProgress: (progress) => set({ translationProgress: progress }),
+      setTranslationStatusText: (translationStatusText) => set({ translationStatusText }),
+      setTranslationEtaSeconds: (translationEtaSeconds) => set({ translationEtaSeconds }),
       setValidationErrors: (errors) => set({ validationErrors: errors }),
       setSelectedKeys: (keys) => set({ selectedKeys: keys }),
 

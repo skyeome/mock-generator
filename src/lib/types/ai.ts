@@ -29,7 +29,7 @@ export type AIProvider = 'openai' | 'cloudflare' | 'gemini';
  * Default models for each provider
  */
 export const PROVIDER_MODELS: Record<AIProvider, string> = {
-  gemini: 'gemini-2.5-flash',
+  gemini: 'gemini-3-flash-preview',
   openai: 'gpt-4o-mini',
   cloudflare: '@cf/meta/llama-3.1-8b-instruct-fp8',
 };

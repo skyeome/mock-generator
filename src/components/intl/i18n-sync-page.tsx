@@ -8,10 +8,13 @@ import { DiffViewer } from "./diff-viewer";
 import { ExportPanel } from "./export-panel";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { RewardedAdOverlay } from "@/components/ui/rewarded-ad-overlay";
+import { useRewardedAd } from "@/hooks/use-rewarded-ad";
 import { AlertCircle, Languages, Loader2, ArrowLeftRight } from "lucide-react";
 
 export function I18nSyncPage() {
   const intl = useIntlSync();
+  const { requestRewardedAd, adState, resetAdState } = useRewardedAd({ name: 'ai_translation' });
   const [sourceFileName, setSourceFileName] = useState("");
   const [targetFileName, setTargetFileName] = useState("");
   const [selectedKeyForView, setSelectedKeyForView] = useState<string | null>(null);
@@ -70,20 +73,48 @@ export function I18nSyncPage() {
   }, [intl]);
 
   const handleTranslate = useCallback(async () => {
-    await intl.translateSelected();
-    // After translation, update target JSON with the exported result
+    const result = await intl.translateSelectedWithRewardedAds({
+      requestRewardedAd,
+      entriesPerAd: 40,
+    });
+
+    if (!result.success) return;
+
     const exported = intl.exportResult();
     if (exported) {
       intl.setTargetJson(exported);
     }
     intl.clearSelection();
-  }, [intl]);
+  }, [intl, requestRewardedAd]);
 
   const handleExport = useCallback(() => {
     return intl.targetJson || "{}";
   }, [intl.targetJson]);
 
+  const handleTranslateAllMissing = useCallback(async () => {
+    intl.selectAllMissing();
+
+    const result = await intl.translateSelectedWithRewardedAds({
+      requestRewardedAd,
+      entriesPerAd: 40,
+    });
+
+    if (!result.success) return;
+
+    const exported = intl.exportResult();
+    if (exported) {
+      intl.setTargetJson(exported);
+    }
+    intl.clearSelection();
+  }, [intl, requestRewardedAd]);
+
   const hasFiles = intl.sourceJson && intl.targetJson;
+
+  const etaLabel = intl.translationEtaSeconds
+    ? intl.translationEtaSeconds >= 60
+      ? `~${Math.ceil(intl.translationEtaSeconds / 60)} min`
+      : `~${intl.translationEtaSeconds}s`
+    : null;
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -260,9 +291,14 @@ export function I18nSyncPage() {
                       <div className="flex items-center gap-2">
                         <Loader2 className="w-4 h-4 text-primary animate-spin" />
                         <span className="text-sm text-muted-foreground">
-                          Translating... {Math.round(intl.translationProgress)}%
+                          {intl.translationStatusText ?? "Translating..."} {Math.round(intl.translationProgress)}%
                         </span>
                       </div>
+                      {etaLabel && (
+                        <p className="text-xs text-muted-foreground">
+                          Estimated remaining time: {etaLabel}
+                        </p>
+                      )}
                       <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
                         <div
                           className="h-full bg-primary transition-all duration-300"
@@ -279,7 +315,7 @@ export function I18nSyncPage() {
                       </p>
                       {stats.missing > 0 && (
                         <Button
-                          onClick={intl.translateAllMissing}
+                          onClick={handleTranslateAllMissing}
                           disabled={!hasFiles}
                           variant="primary"
                           className="w-full"
@@ -297,6 +333,11 @@ export function I18nSyncPage() {
                         <Languages className="w-4 h-4 mr-2" />
                         Translate Selected
                       </Button>
+                      {intl.translationStatusText && (
+                        <p className="text-xs text-muted-foreground">
+                          {intl.translationStatusText}
+                        </p>
+                      )}
                     </>
                   )}
                 </div>
@@ -312,6 +353,15 @@ export function I18nSyncPage() {
           </div>
         )}
       </div>
+
+      <RewardedAdOverlay
+        isVisible={adState === 'prompt' || adState === 'watching' || adState === 'completed' || adState === 'dismissed'}
+        state={adState as 'prompt' | 'watching' | 'completed' | 'dismissed'}
+        onDismiss={resetAdState}
+        completedMessage="Starting AI translation now…"
+        promptMessage="Watch a brief ad to use AI translation for free."
+        dismissedMessage="Watch the full ad to use AI translation."
+      />
     </div>
   );
 }
