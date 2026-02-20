@@ -355,10 +355,9 @@ export function I18nSyncPage() {
       </div>
 
       <RewardedAdOverlay
-        isVisible={adState === 'prompt' || adState === 'watching' || adState === 'completed' || adState === 'dismissed'}
+        isVisible={adState === 'prompt' || adState === 'watching' || adState === 'dismissed'}
         state={adState as 'prompt' | 'watching' | 'completed' | 'dismissed'}
         onDismiss={resetAdState}
-        completedMessage="Starting AI translation now…"
         promptMessage="Watch a brief ad to use AI translation for free."
         dismissedMessage="Watch the full ad to use AI translation."
       />

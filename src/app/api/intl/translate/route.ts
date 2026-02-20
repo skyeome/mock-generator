@@ -16,6 +16,7 @@ interface TranslateResponse {
   success: boolean;
   translations?: Record<string, string>;
   error?: string;
+  debugId?: string;
   fallback?: boolean;
   // New fields for partial success
   partial?: boolean;
@@ -24,6 +25,57 @@ interface TranslateResponse {
     totalChunks: number;
     successfulChunks: number;
   };
+}
+
+interface RequestDebugContext {
+  requestId: string;
+  provider: string;
+}
+
+function buildRequestId(): string {
+  try {
+    return crypto.randomUUID();
+  } catch {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+}
+
+function sanitizeUrlForLog(rawUrl: string): string {
+  try {
+    const parsed = new URL(rawUrl);
+    return `${parsed.origin}${parsed.pathname}`;
+  } catch {
+    return "invalid-url";
+  }
+}
+
+function describeError(error: unknown): Record<string, unknown> {
+  if (!(error instanceof Error)) {
+    return { type: typeof error, value: String(error) };
+  }
+
+  const details: Record<string, unknown> = {
+    name: error.name,
+    message: error.message,
+  };
+
+  const maybeCode = (error as { code?: unknown }).code;
+  if (typeof maybeCode === "string") {
+    details.code = maybeCode;
+  }
+
+  const cause = (error as { cause?: unknown }).cause;
+  if (cause instanceof Error) {
+    details.cause = {
+      name: cause.name,
+      message: cause.message,
+      code: (cause as { code?: unknown }).code,
+    };
+  } else if (cause !== undefined) {
+    details.cause = String(cause);
+  }
+
+  return details;
 }
 
 // Utility functions for chunking and timeout management
@@ -52,6 +104,12 @@ async function retryWithBackoff<T>(
   maxAttempts: number = 3,
   baseDelayMs: number = 1000,
   shouldRetry: (error: Error) => boolean = () => true,
+  debug?: {
+    requestId: string;
+    provider: string;
+    chunkIndex?: number;
+    totalChunks?: number;
+  },
 ): Promise<T> {
   let lastError: Error | undefined;
 
@@ -60,9 +118,19 @@ async function retryWithBackoff<T>(
       return await fn();
     } catch (error) {
       lastError = error as Error;
-      console.warn(`Attempt ${attempt}/${maxAttempts} failed:`, lastError.message);
+      const retryable = shouldRetry(lastError);
+      console.warn("[intl-translate] Retry attempt failed", {
+        requestId: debug?.requestId,
+        provider: debug?.provider,
+        chunkIndex: debug?.chunkIndex,
+        totalChunks: debug?.totalChunks,
+        attempt,
+        maxAttempts,
+        retryable,
+        error: describeError(lastError),
+      });
 
-      if (!shouldRetry(lastError)) {
+      if (!retryable) {
         throw lastError;
       }
 
@@ -122,26 +190,41 @@ async function translateWithOpenAI(
   entries: Array<{ key: string; value: string }>,
   tone?: "formal" | "casual",
   context?: string,
+  debug?: RequestDebugContext,
 ): Promise<Record<string, string>> {
   const baseUrl = process.env?.OPENAI_BASE_URL || "http://localhost:1234/v1";
   const model = process.env?.OPENAI_MODEL || "gpt-oss-20b";
+  const endpoint = `${baseUrl}/chat/completions`;
 
   const prompt = `Translate from ${sourceLocale} to ${targetLocale}:
 ${JSON.stringify(Object.fromEntries(entries.map((e) => [e.key, e.value])), null, 2)}`;
 
-  const response = await fetch(`${baseUrl}/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
+  let response: Response;
+  try {
+    response = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model,
+        messages: [
+          { role: "system", content: buildSystemPrompt(tone, context) },
+          { role: "user", content: prompt },
+        ],
+        max_tokens: 2048,
+        temperature: 0.3,
+      }),
+    });
+  } catch (error) {
+    console.error("[intl-translate] OpenAI fetch failed", {
+      requestId: debug?.requestId,
+      provider: debug?.provider,
+      endpoint: sanitizeUrlForLog(endpoint),
       model,
-      messages: [
-        { role: "system", content: buildSystemPrompt(tone, context) },
-        { role: "user", content: prompt },
-      ],
-      max_tokens: 2048,
-      temperature: 0.3,
-    }),
-  });
+      entries: entries.length,
+      error: describeError(error),
+    });
+    throw error;
+  }
 
   if (!response.ok) {
     throw new Error(`OpenAI API error: ${response.status}`);
@@ -237,6 +320,7 @@ async function translateWithGemini(
   entries: Array<{ key: string; value: string }>,
   tone?: "formal" | "casual",
   context?: string,
+  debug?: RequestDebugContext,
 ): Promise<Record<string, string>> {
   const apiKey = process.env?.GOOGLE_API_KEY;
   if (!apiKey) {
@@ -249,21 +333,33 @@ async function translateWithGemini(
   const prompt = `Translate from ${sourceLocale} to ${targetLocale}:
 ${JSON.stringify(Object.fromEntries(entries.map((e) => [e.key, e.value])), null, 2)}`;
 
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      contents: [{
-        parts: [{
-          text: `${buildSystemPrompt(tone, context)}\n\n${prompt}`
-        }]
-      }],
-      generationConfig: {
-        maxOutputTokens: 4096,
-        temperature: 0.3,
-      }
-    }),
-  });
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          parts: [{
+            text: `${buildSystemPrompt(tone, context)}\n\n${prompt}`
+          }]
+        }],
+        generationConfig: {
+          maxOutputTokens: 4096,
+          temperature: 0.3,
+        }
+      }),
+    });
+  } catch (error) {
+    console.error("[intl-translate] Gemini fetch failed", {
+      requestId: debug?.requestId,
+      provider: debug?.provider,
+      model,
+      entries: entries.length,
+      error: describeError(error),
+    });
+    throw error;
+  }
 
   if (!response.ok) {
     const errorBody = await response.text().catch(() => "");
@@ -306,6 +402,7 @@ async function translateChunkedGemini(
   entries: Array<{ key: string; value: string }>,
   tone?: "formal" | "casual",
   context?: string,
+  debug?: RequestDebugContext,
 ): Promise<ChunkedTranslationResult> {
   const CHUNK_SIZE = 40;       // Gemini handles larger batches efficiently
   const TIMEOUT_MS = 15000;    // 15s timeout (Gemini is faster)
@@ -318,15 +415,21 @@ async function translateChunkedGemini(
   let successfulChunks = 0;
 
   const results = await Promise.allSettled(
-    chunks.map(chunk =>
+    chunks.map((chunk, chunkIndex) =>
       retryWithBackoff(
         () => withTimeout(
-          translateWithGemini(sourceLocale, targetLocale, chunk, tone, context),
+          translateWithGemini(sourceLocale, targetLocale, chunk, tone, context, debug),
           TIMEOUT_MS
         ),
         MAX_RETRIES,
         BASE_DELAY_MS,
-        (error) => !isNonRetryableGeminiError(error)
+        (error) => !isNonRetryableGeminiError(error),
+        {
+          requestId: debug?.requestId ?? "unknown",
+          provider: debug?.provider ?? "gemini",
+          chunkIndex,
+          totalChunks: chunks.length,
+        },
       )
     )
   );
@@ -337,7 +440,13 @@ async function translateChunkedGemini(
       Object.assign(allTranslations, result.value);
       successfulChunks++;
     } else {
-      console.error(`Gemini chunk ${i} failed after retries:`, result.reason);
+      console.error("[intl-translate] Gemini chunk failed after retries", {
+        requestId: debug?.requestId,
+        provider: debug?.provider,
+        chunkIndex: i,
+        totalChunks: chunks.length,
+        error: describeError(result.reason),
+      });
       failedKeys.push(...chunks[i].map(e => e.key));
     }
   }
@@ -360,6 +469,7 @@ async function translateChunked(
   ai: Ai,
   tone?: "formal" | "casual",
   context?: string,
+  debug?: RequestDebugContext,
 ): Promise<ChunkedTranslationResult> {
   const CHUNK_SIZE = 10;
   const TIMEOUT_MS = 25000;
@@ -370,14 +480,21 @@ async function translateChunked(
   let successfulChunks = 0;
 
   const results = await Promise.allSettled(
-    chunks.map(chunk =>
+    chunks.map((chunk, chunkIndex) =>
       retryWithBackoff(
         () => withTimeout(
           translateWithCloudflare(sourceLocale, targetLocale, chunk, ai, tone, context),
           TIMEOUT_MS
         ),
         3,
-        1000
+        1000,
+        undefined,
+        {
+          requestId: debug?.requestId ?? "unknown",
+          provider: debug?.provider ?? "cloudflare",
+          chunkIndex,
+          totalChunks: chunks.length,
+        },
       )
     )
   );
@@ -388,7 +505,13 @@ async function translateChunked(
       Object.assign(allTranslations, result.value);
       successfulChunks++;
     } else {
-      console.error(`Chunk ${i} failed after retries:`, result.reason);
+      console.error("[intl-translate] Cloudflare chunk failed after retries", {
+        requestId: debug?.requestId,
+        provider: debug?.provider,
+        chunkIndex: i,
+        totalChunks: chunks.length,
+        error: describeError(result.reason),
+      });
       failedKeys.push(...chunks[i].map(e => e.key));
     }
   }
@@ -410,6 +533,7 @@ async function translateChunkedOpenAI(
   entries: Array<{ key: string; value: string }>,
   tone?: "formal" | "casual",
   context?: string,
+  debug?: RequestDebugContext,
 ): Promise<ChunkedTranslationResult> {
   const CHUNK_SIZE = 10;
   const TIMEOUT_MS = 25000;
@@ -420,14 +544,21 @@ async function translateChunkedOpenAI(
   let successfulChunks = 0;
 
   const results = await Promise.allSettled(
-    chunks.map(chunk =>
+    chunks.map((chunk, chunkIndex) =>
       retryWithBackoff(
         () => withTimeout(
-          translateWithOpenAI(sourceLocale, targetLocale, chunk, tone, context),
+          translateWithOpenAI(sourceLocale, targetLocale, chunk, tone, context, debug),
           TIMEOUT_MS
         ),
         3,
-        1000
+        1000,
+        undefined,
+        {
+          requestId: debug?.requestId ?? "unknown",
+          provider: debug?.provider ?? "openai",
+          chunkIndex,
+          totalChunks: chunks.length,
+        },
       )
     )
   );
@@ -438,7 +569,13 @@ async function translateChunkedOpenAI(
       Object.assign(allTranslations, result.value);
       successfulChunks++;
     } else {
-      console.error(`Chunk ${i} failed after retries:`, result.reason);
+      console.error("[intl-translate] OpenAI chunk failed after retries", {
+        requestId: debug?.requestId,
+        provider: debug?.provider,
+        chunkIndex: i,
+        totalChunks: chunks.length,
+        error: describeError(result.reason),
+      });
       failedKeys.push(...chunks[i].map(e => e.key));
     }
   }
@@ -454,6 +591,7 @@ async function translateChunkedOpenAI(
 export async function POST(
   request: NextRequest,
 ): Promise<NextResponse<TranslateResponse>> {
+  const requestId = buildRequestId();
   try {
     const body = (await request.json()) as TranslateRequest;
     const { sourceLocale, targetLocale, entries, context, tone } = body;
@@ -461,7 +599,7 @@ export async function POST(
     // Validate request
     if (!sourceLocale || !targetLocale || !entries?.length) {
       return NextResponse.json(
-        { success: false, error: "Missing required fields" },
+        { success: false, error: "Missing required fields", debugId: requestId },
         { status: 400 },
       );
     }
@@ -469,13 +607,33 @@ export async function POST(
     // Validate tone if provided
     if (tone && tone !== "formal" && tone !== "casual") {
       return NextResponse.json(
-        { success: false, error: 'Invalid tone. Must be "formal" or "casual"' },
+        { success: false, error: 'Invalid tone. Must be "formal" or "casual"', debugId: requestId },
         { status: 400 },
       );
     }
 
     // Determine provider: explicit env var > dev/prod default
     const provider = process.env?.AI_PROVIDER || (isDev ? 'openai' : 'cloudflare');
+    const resolvedModel = provider === 'openai'
+      ? (process.env?.OPENAI_MODEL || 'gpt-oss-20b')
+      : provider === 'gemini'
+        ? resolveGeminiModel()
+        : (process.env?.CLOUDFLARE_MODEL || '@cf/meta/llama-3.1-8b-instruct-fp8');
+    console.info("[intl-translate] Request started", {
+      requestId,
+      provider,
+      model: resolvedModel,
+      sourceLocale,
+      targetLocale,
+      entries: entries.length,
+      hasTone: Boolean(tone),
+      hasContext: Boolean(context),
+    });
+
+    const debug: RequestDebugContext = {
+      requestId,
+      provider,
+    };
 
     if (provider === 'gemini') {
       // Use Google Gemini API (fastest)
@@ -491,6 +649,7 @@ export async function POST(
         return NextResponse.json({
           success: true,
           translations: fallbackTranslations,
+          debugId: requestId,
           fallback: true,
         });
       }
@@ -501,6 +660,7 @@ export async function POST(
         entries,
         tone,
         context,
+        debug,
       );
 
       if (result.successfulChunks === 0) {
@@ -515,11 +675,15 @@ export async function POST(
         }
 
         if (ai) {
-          const cfResult = await translateChunked(sourceLocale, targetLocale, entries, ai, tone, context);
+          const cfResult = await translateChunked(sourceLocale, targetLocale, entries, ai, tone, context, {
+            requestId,
+            provider: "cloudflare",
+          });
           if (cfResult.successfulChunks > 0) {
             return NextResponse.json({
               success: true,
               translations: cfResult.translations,
+              debugId: requestId,
               partial: cfResult.failedKeys.length > 0,
               failedKeys: cfResult.failedKeys.length > 0 ? cfResult.failedKeys : undefined,
               stats: {
@@ -531,7 +695,7 @@ export async function POST(
         }
 
         return NextResponse.json(
-          { success: false, error: "All translation chunks failed" },
+          { success: false, error: "All translation chunks failed", debugId: requestId },
           { status: 500 },
         );
       }
@@ -539,6 +703,7 @@ export async function POST(
       return NextResponse.json({
         success: true,
         translations: result.translations,
+        debugId: requestId,
         partial: result.failedKeys.length > 0,
         failedKeys: result.failedKeys.length > 0 ? result.failedKeys : undefined,
         stats: {
@@ -556,12 +721,13 @@ export async function POST(
         entries,
         tone,
         context,
+        debug,
       );
 
       if (result.successfulChunks === 0) {
         // Complete failure
         return NextResponse.json(
-          { success: false, error: "All translation chunks failed" },
+          { success: false, error: "All translation chunks failed", debugId: requestId },
           { status: 500 },
         );
       }
@@ -569,6 +735,7 @@ export async function POST(
       return NextResponse.json({
         success: true,
         translations: result.translations,
+        debugId: requestId,
         partial: result.failedKeys.length > 0,
         failedKeys: result.failedKeys.length > 0 ? result.failedKeys : undefined,
         stats: {
@@ -598,6 +765,7 @@ export async function POST(
         return NextResponse.json({
           success: true,
           translations: fallbackTranslations,
+          debugId: requestId,
           fallback: true,
         });
       }
@@ -609,12 +777,13 @@ export async function POST(
         ai,
         tone,
         context,
+        debug,
       );
 
       if (result.successfulChunks === 0) {
         // Complete failure
         return NextResponse.json(
-          { success: false, error: "All translation chunks failed" },
+          { success: false, error: "All translation chunks failed", debugId: requestId },
           { status: 500 },
         );
       }
@@ -622,6 +791,7 @@ export async function POST(
       return NextResponse.json({
         success: true,
         translations: result.translations,
+        debugId: requestId,
         partial: result.failedKeys.length > 0,
         failedKeys: result.failedKeys.length > 0 ? result.failedKeys : undefined,
         stats: {
@@ -631,9 +801,12 @@ export async function POST(
       });
     }
   } catch (error) {
-    console.error("Translation error:", error);
+    console.error("[intl-translate] Translation error", {
+      requestId,
+      error: describeError(error),
+    });
     return NextResponse.json(
-      { success: false, error: (error as Error).message },
+      { success: false, error: (error as Error).message, debugId: requestId },
       { status: 500 },
     );
   }
