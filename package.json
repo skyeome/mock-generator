@@ -22,6 +22,7 @@
 		"@opennextjs/cloudflare": "^1.15.1",
 		"@radix-ui/react-scroll-area": "^1.2.10",
 		"@radix-ui/react-switch": "^1.2.6",
+		"@tailwindcss/typography": "^0.5.19",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
 		"json5": "^2.2.3",

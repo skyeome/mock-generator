@@ -67,12 +67,6 @@ export default function RootLayout({
         <link rel="icon" href="/favicon.svg" type="image/svg+xml"></link>
         <meta name="google-adsense-account" content="ca-pub-8121775555791709" />
         <script
-          async
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-8121775555791709"
-          crossOrigin="anonymous"
-          {...(process.env.NODE_ENV === 'development' ? { 'data-adbreak-test': 'on' } : {})}
-        ></script>
-        <script
           dangerouslySetInnerHTML={{
             __html: `
               window.adsbygoogle = window.adsbygoogle || [];

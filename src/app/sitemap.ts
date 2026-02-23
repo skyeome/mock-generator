@@ -35,6 +35,28 @@ const INTL_PAGES = [
   '/intl/json-localization',
 ];
 
+// Blog post slugs
+const BLOG_POSTS = [
+  '/blog/complete-guide-mock-data-generation',
+  '/blog/faker-js-deep-dive',
+  '/blog/json-schema-developer-guide',
+  '/blog/database-seeding-best-practices',
+  '/blog/i18n-best-practices-javascript',
+  '/blog/api-testing-with-mock-data',
+  '/blog/typescript-types-from-json',
+  '/blog/csv-json-sql-export-formats',
+  '/blog/localization-pipeline-react',
+  '/blog/test-data-anti-patterns',
+];
+
+// Doc page slugs
+const DOC_PAGES = [
+  '/docs/mock-data-generator',
+  '/docs/i18n-sync-tool',
+  '/docs/export-formats',
+  '/docs/ai-semantic-detection',
+];
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = 'https://ai-utils.work';
   const now = new Date();
@@ -102,6 +124,41 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: 'monthly' as const,
       priority: 0.6,
+    })),
+    // Blog index
+    {
+      url: `${baseUrl}/blog`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    // About page
+    {
+      url: `${baseUrl}/about`,
+      lastModified: now,
+      changeFrequency: 'monthly',
+      priority: 0.6,
+    },
+    // Docs index
+    {
+      url: `${baseUrl}/docs`,
+      lastModified: now,
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    },
+    // Blog posts
+    ...BLOG_POSTS.map((path) => ({
+      url: `${baseUrl}${path}`,
+      lastModified: now,
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
+    })),
+    // Doc pages
+    ...DOC_PAGES.map((path) => ({
+      url: `${baseUrl}${path}`,
+      lastModified: now,
+      changeFrequency: 'monthly' as const,
+      priority: 0.7,
     })),
   ];
 }
