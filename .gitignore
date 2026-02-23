@@ -54,3 +54,6 @@ next-env.d.ts
 /.omc
 /.serena
 /.playwright-mcp
+
+# opencode
+.sisyphus
